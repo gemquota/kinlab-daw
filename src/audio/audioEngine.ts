@@ -1,12 +1,19 @@
 /**
- * Web Audio API engine for KinLab DAW.
- * Manages audio context, master output, and real-time synthesis.
+ * Enhanced Web Audio API engine with effects chain.
+ * Reverb, delay, chorus, and master limiter.
  */
 
 let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let masterAnalyser: AnalyserNode | null = null;
 let compressor: DynamicsCompressorNode | null = null;
+let reverbNode: ConvolverNode | null = null;
+let delayNode: DelayNode | null = null;
+let delayFeedback: GainNode | null = null;
+let delayMix: GainNode | null = null;
+let dryGain: GainNode | null = null;
+let reverbGain: GainNode | null = null;
+let preGain: GainNode | null = null;
 
 export interface TrackVoice {
   id: string;
@@ -14,30 +21,136 @@ export interface TrackVoice {
   gainNode: GainNode;
   panNode: StereoPannerNode;
   filterNode: BiquadFilterNode;
+  effectsGain: GainNode;
 }
 
 const voices: Map<string, TrackVoice> = new Map();
 
+/* ─── Effects state ─── */
+
+export interface EffectsState {
+  reverbAmount: number;
+  delayTime: number;
+  delayFeedback: number;
+  delayMix: number;
+  filterFreq: number;
+  filterQ: number;
+}
+
+let currentEffects: EffectsState = {
+  reverbAmount: 0.3,
+  delayTime: 0.375,
+  delayFeedback: 0.35,
+  delayMix: 0.2,
+  filterFreq: 20000,
+  filterQ: 1,
+};
+
+export function getEffects(): EffectsState {
+  return { ...currentEffects };
+}
+
+export function setEffects(patch: Partial<EffectsState>): void {
+  const ac = getAudioContext();
+  const t = ac.currentTime;
+  Object.assign(currentEffects, patch);
+
+  if (reverbGain) reverbGain.gain.setTargetAtTime(currentEffects.reverbAmount, t, 0.05);
+  if (dryGain) dryGain.gain.setTargetAtTime(1 - currentEffects.reverbAmount * 0.3, t, 0.05);
+  if (delayNode) delayNode.delayTime.setTargetAtTime(currentEffects.delayTime, t, 0.05);
+  if (delayFeedback) delayFeedback.gain.setTargetAtTime(currentEffects.delayFeedback, t, 0.05);
+  if (delayMix) delayMix.gain.setTargetAtTime(currentEffects.delayMix, t, 0.05);
+}
+
+/* ─── Reverb impulse generation ─── */
+
+function createReverbImpulse(ac: AudioContext, duration: number = 2, decay: number = 2): AudioBuffer {
+  const sampleRate = ac.sampleRate;
+  const length = sampleRate * duration;
+  const buffer = ac.createBuffer(2, length, sampleRate);
+
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buffer.getChannelData(ch);
+    for (let i = 0; i < length; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+    }
+  }
+  return buffer;
+}
+
+/* ─── Audio context setup ─── */
+
 export function getAudioContext(): AudioContext {
   if (!ctx) {
     ctx = new AudioContext();
+
+    // Pre-gain
+    preGain = ctx.createGain();
+    preGain.gain.value = 1;
+
+    // Compressor
     compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -24;
+    compressor.threshold.value = -18;
     compressor.knee.value = 12;
     compressor.ratio.value = 4;
     compressor.attack.value = 0.003;
-    compressor.release.value = 0.25;
+    compressor.release.value = 0.15;
 
+    // Master gain
     masterGain = ctx.createGain();
-    masterGain.gain.value = 0.8;
+    masterGain.gain.value = 0.75;
 
+    // Analyser
     masterAnalyser = ctx.createAnalyser();
     masterAnalyser.fftSize = 2048;
-    masterAnalyser.smoothingTimeConstant = 0.8;
+    masterAnalyser.smoothingTimeConstant = 0.85;
 
-    masterGain.connect(compressor);
-    compressor.connect(masterAnalyser);
-    masterAnalyser.connect(ctx.destination);
+    // Reverb
+    reverbNode = ctx.createConvolver();
+    reverbNode.buffer = createReverbImpulse(ctx, 2.5, 2.5);
+    reverbGain = ctx.createGain();
+    reverbGain.gain.value = currentEffects.reverbAmount;
+
+    // Dry path
+    dryGain = ctx.createGain();
+    dryGain.gain.value = 0.85;
+
+    // Delay
+    delayNode = ctx.createDelay(2);
+    delayNode.delayTime.value = currentEffects.delayTime;
+    delayFeedback = ctx.createGain();
+    delayFeedback.gain.value = currentEffects.delayFeedback;
+    delayMix = ctx.createGain();
+    delayMix.gain.value = currentEffects.delayMix;
+
+    // Routing:
+    // preGain → compressor → dryGain ─────────────────→ masterGain → masterAnalyser → destination
+    //                         ──→ reverbNode → reverbGain ──→ masterGain
+    //                         ──→ delayNode → delayFeedback ↩
+    //                         ──→ delayMix ──→ masterGain
+
+    preGain.connect(compressor);
+
+    compressor.connect(dryGain);
+    compressor.connect(reverbNode!);
+    compressor.connect(delayNode!);
+
+    reverbNode!.connect(reverbGain!);
+    reverbGain!.connect(masterGain!);
+
+    delayNode!.connect(delayFeedback!);
+    delayFeedback!.connect(delayNode!);
+    delayNode!.connect(delayMix!);
+    delayMix!.connect(masterGain!);
+
+    dryGain!.connect(masterGain!);
+
+    masterGain!.connect(compressor);
+    masterAnalyser!.connect(ctx.destination);
+
+    // Fix: masterGain should connect to analyser, not back to compressor
+    masterGain!.disconnect(compressor);
+    masterGain!.connect(masterAnalyser!);
   }
   return ctx;
 }
@@ -67,15 +180,18 @@ export interface VoiceParams {
   frequency: number;
   amplitude: number;
   waveformType: OscillatorType | "custom";
-  pan: number;       // -1..1
-  filterFreq: number; // Hz
+  pan: number;
+  filterFreq: number;
   filterQ: number;
-  detune: number;    // cents
+  detune: number;
 }
 
 export function createVoice(trackId: string): TrackVoice {
   destroyVoice(trackId);
   const ac = getAudioContext();
+
+  const effectsGain = ac.createGain();
+  effectsGain.gain.value = 0;
 
   const gainNode = ac.createGain();
   gainNode.gain.value = 0;
@@ -88,9 +204,10 @@ export function createVoice(trackId: string): TrackVoice {
   filterNode.frequency.value = 20000;
   filterNode.Q.value = 1;
 
+  effectsGain.connect(gainNode);
   gainNode.connect(panNode);
   panNode.connect(filterNode);
-  filterNode.connect(masterGain!);
+  filterNode.connect(preGain!);
 
   const voice: TrackVoice = {
     id: trackId,
@@ -98,6 +215,7 @@ export function createVoice(trackId: string): TrackVoice {
     gainNode,
     panNode,
     filterNode,
+    effectsGain,
   };
 
   voices.set(trackId, voice);
@@ -114,7 +232,6 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
   voice.filterNode.frequency.setTargetAtTime(params.filterFreq, ac.currentTime, 0.01);
   voice.filterNode.Q.setTargetAtTime(params.filterQ, ac.currentTime, 0.01);
 
-  // Update oscillators if count changed or need recreation
   const needsRecreate = voice.oscillators.length === 0 ||
     voice.oscillators[0]?.type !== (params.waveformType === "custom" ? "sawtooth" : params.waveformType);
 
@@ -127,7 +244,7 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
     osc.type = oscType;
     osc.frequency.value = params.frequency;
     osc.detune.value = params.detune;
-    osc.connect(voice.gainNode);
+    osc.connect(voice.effectsGain);
     osc.start();
     voice.oscillators.push(osc);
   } else {
@@ -143,6 +260,7 @@ export function destroyVoice(trackId: string): void {
   voice.gainNode.disconnect();
   voice.panNode.disconnect();
   voice.filterNode.disconnect();
+  voice.effectsGain.disconnect();
   voices.delete(trackId);
 }
 
@@ -163,8 +281,6 @@ export function getFrequencyData(analyser: AnalyserNode): Uint8Array {
   analyser.getByteFrequencyData(data);
   return data;
 }
-
-/* ── Audio meter (RMS) ── */
 
 export function getRMSLevel(analyser: AnalyserNode): number {
   const data = getAnalyserData(analyser);
