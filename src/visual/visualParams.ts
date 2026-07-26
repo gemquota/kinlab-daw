@@ -1,13 +1,13 @@
 /**
- * Visual parameter definitions for each visualization mode.
- * Every mode has a unique set of tunable parameters exposed via the bottom drawer UI.
+ * Visual parameter definitions — 10 truly distinct visualization modes.
+ * Each mode uses a fundamentally different rendering algorithm.
  */
 
 export type VisualMode =
   | "nebula" | "network" | "kaleidoscope"
-  | "waveField" | "terrain"
-  | "cellular" | "fluid"
-  | "orbs" | "lissajous" | "fractal";
+  | "oscilloscope" | "terrain"
+  | "plasma" | "fluid"
+  | "orbs" | "voronoi" | "fractal";
 
 export interface VisualParams {
   // Shared
@@ -16,7 +16,7 @@ export interface VisualParams {
   intensity: number;
   trailFade: number;
 
-  // Particle-based
+  // Particle-based (nebula/network/kaleidoscope)
   particleCount: number;
   particleSize: number;
   particleSpeed: number;
@@ -38,11 +38,12 @@ export interface VisualParams {
   kaleidoRings: number;
   kaleidoSpin: number;
 
-  // Wave field
-  waveLines: number;
-  waveAmplitude: number;
-  waveFrequency: number;
-  waveThickness: number;
+  // Oscilloscope
+  oscTraceLength: number;
+  oscDecay: number;
+  oscScale: number;
+  oscLayers: number;
+  oscXYMode: boolean;
 
   // Terrain
   terrainLayers: number;
@@ -50,10 +51,11 @@ export interface VisualParams {
   terrainPerspective: number;
   terrainScanlines: boolean;
 
-  // Cellular
-  cellSize: number;
-  cellThreshold: number;
-  cellHueSpread: number;
+  // Plasma
+  plasmaScale: number;
+  plasmaSpeed: number;
+  plasmaLayers: number;
+  plasmaPalette: number;
 
   // Fluid
   fluidScale: number;
@@ -69,13 +71,11 @@ export interface VisualParams {
   orbGlow: number;
   orbTrail: number;
 
-  // Lissajous
-  lissFreqX: number;
-  lissFreqY: number;
-  lissPhase: number;
-  lissLineWidth: number;
-  lissRotation: number;
-  lissLayers: number;
+  // Voronoi
+  voronoiPoints: number;
+  voronoiCellSize: number;
+  voronoiEdgeWidth: number;
+  voronoiFill: boolean;
 
   // Fractal
   fractalDepth: number;
@@ -86,81 +86,30 @@ export interface VisualParams {
 }
 
 export const DEFAULT_PARAMS: VisualParams = {
-  hueShift: 0,
-  speed: 1,
-  intensity: 1,
-  trailFade: 0.08,
-
-  particleCount: 2000,
-  particleSize: 2.5,
-  particleSpeed: 1,
-  beatForce: 8,
-  mouseForce: 0.06,
-  friction: 0.96,
-
-  nebulaClouds: 6,
-  nebulaNoise: 0.15,
-  nebulaGlow: 3,
-
-  networkLinkDist: 80,
-  networkLineWidth: 0.5,
-
-  kaleidoSegments: 8,
-  kaleidoRings: 6,
-  kaleidoSpin: 0.5,
-
-  waveLines: 40,
-  waveAmplitude: 1,
-  waveFrequency: 1,
-  waveThickness: 1,
-
-  terrainLayers: 30,
-  terrainHeight: 1,
-  terrainPerspective: 0.45,
-  terrainScanlines: true,
-
-  cellSize: 12,
-  cellThreshold: 0.48,
-  cellHueSpread: 70,
-
-  fluidScale: 0.003,
-  fluidOctaves: 4,
-  fluidLacunarity: 2,
-  fluidPersistence: 0.5,
-
-  orbCount: 15,
-  orbMinSize: 20,
-  orbMaxSize: 80,
-  orbGravity: 0.02,
-  orbGlow: 1,
-  orbTrail: 0.05,
-
-  lissFreqX: 3,
-  lissFreqY: 2,
-  lissPhase: 0,
-  lissLineWidth: 1.5,
-  lissRotation: 0.3,
-  lissLayers: 5,
-
-  fractalDepth: 8,
-  fractalAngle: 25,
-  fractalLength: 100,
-  fractalBranches: 2,
-  fractalWind: 0,
+  hueShift: 0, speed: 1, intensity: 1, trailFade: 0.08,
+  particleCount: 2000, particleSize: 2.5, particleSpeed: 1,
+  beatForce: 8, mouseForce: 0.06, friction: 0.96,
+  nebulaClouds: 6, nebulaNoise: 0.15, nebulaGlow: 3,
+  networkLinkDist: 80, networkLineWidth: 0.5,
+  kaleidoSegments: 8, kaleidoRings: 6, kaleidoSpin: 0.5,
+  oscTraceLength: 2000, oscDecay: 0.92, oscScale: 0.4, oscLayers: 3, oscXYMode: true,
+  terrainLayers: 30, terrainHeight: 1, terrainPerspective: 0.45, terrainScanlines: true,
+  plasmaScale: 1, plasmaSpeed: 1, plasmaLayers: 4, plasmaPalette: 0,
+  fluidScale: 0.003, fluidOctaves: 4, fluidLacunarity: 2, fluidPersistence: 0.5,
+  orbCount: 15, orbMinSize: 20, orbMaxSize: 80, orbGravity: 0.02, orbGlow: 1, orbTrail: 0.05,
+  voronoiPoints: 30, voronoiCellSize: 20, voronoiEdgeWidth: 1.5, voronoiFill: true,
+  fractalDepth: 8, fractalAngle: 25, fractalLength: 100, fractalBranches: 2, fractalWind: 0,
 };
 
-/** Get default params for a specific mode */
 export function getDefaultParams(_mode: VisualMode): Partial<VisualParams> {
   return { ...DEFAULT_PARAMS };
 }
 
-/** Mode metadata */
 export interface VisualModeInfo {
   id: VisualMode;
   name: string;
   icon: string;
   desc: string;
-  /** Which param keys are relevant for this mode */
   paramGroups: ParamGroup[];
 }
 
@@ -181,10 +130,9 @@ export interface ParamDef {
 const S = (key: keyof VisualParams, label: string, min: number, max: number, step = 0.01, format?: (v: number) => string): ParamDef =>
   ({ key, label, min, max, step, format });
 
-
 export const VISUAL_MODES: VisualModeInfo[] = [
   {
-    id: "nebula", name: "Nebula", icon: "✦", desc: "Cosmic clouds and scattered particles",
+    id: "nebula", name: "Nebula", icon: "✦", desc: "Cosmic radial gradient clouds",
     paramGroups: [
       { label: "Clouds", params: [
         S("nebulaClouds", "Count", 1, 12, 1),
@@ -223,7 +171,7 @@ export const VISUAL_MODES: VisualModeInfo[] = [
     ],
   },
   {
-    id: "kaleidoscope", name: "Kaleidoscope", icon: "❋", desc: "Symmetric mandala geometry",
+    id: "kaleidoscope", name: "Kaleidoscope", icon: "❋", desc: "Symmetric particle mandala",
     paramGroups: [
       { label: "Symmetry", params: [
         S("kaleidoSegments", "Segments", 3, 16, 1),
@@ -238,22 +186,21 @@ export const VISUAL_MODES: VisualModeInfo[] = [
     ],
   },
   {
-    id: "waveField", name: "Wave Field", icon: "≋", desc: "Audio-driven wave interference",
+    id: "oscilloscope", name: "Oscilloscope", icon: "∿", desc: "XY-mode oscilloscope traces",
     paramGroups: [
-      { label: "Waves", params: [
-        S("waveLines", "Lines", 10, 80, 1),
-        S("waveAmplitude", "Amplitude", 0.2, 3),
-        S("waveFrequency", "Frequency", 0.2, 3),
-        S("waveThickness", "Thickness", 0.3, 3),
+      { label: "Trace", params: [
+        S("oscTraceLength", "Length", 500, 5000, 100),
+        S("oscDecay", "Decay", 0.8, 0.99),
+        S("oscScale", "Scale", 0.1, 0.8),
       ]},
-      { label: "Motion", params: [
-        S("speed", "Speed", 0.2, 3),
-        S("trailFade", "Trail", 0, 0.3),
+      { label: "Style", params: [
+        S("oscLayers", "Layers", 1, 6, 1),
+        S("intensity", "Intensity", 0.3, 2),
       ]},
     ],
   },
   {
-    id: "terrain", name: "Terrain", icon: "⊿", desc: "Retro scanline landscape",
+    id: "terrain", name: "Terrain", icon: "⊿", desc: "Retro 3D scanline landscape",
     paramGroups: [
       { label: "Landscape", params: [
         S("terrainLayers", "Layers", 10, 60, 1),
@@ -267,21 +214,22 @@ export const VISUAL_MODES: VisualModeInfo[] = [
     ],
   },
   {
-    id: "cellular", name: "Cellular", icon: "▣", desc: "Wave interference grid",
+    id: "plasma", name: "Plasma", icon: "◎", desc: "Demoscene plasma color field",
     paramGroups: [
-      { label: "Grid", params: [
-        S("cellSize", "Cell size", 4, 30, 1),
-        S("cellThreshold", "Threshold", 0.2, 0.8),
-        S("cellHueSpread", "Hue spread", 10, 150, 5),
+      { label: "Plasma", params: [
+        S("plasmaScale", "Scale", 0.2, 3),
+        S("plasmaSpeed", "Speed", 0.2, 3),
+        S("plasmaLayers", "Layers", 1, 8, 1),
+        S("plasmaPalette", "Palette", 0, 3, 1),
       ]},
-      { label: "Motion", params: [
-        S("speed", "Speed", 0.2, 3),
+      { label: "Audio", params: [
+        S("intensity", "Intensity", 0.3, 2),
         S("trailFade", "Trail", 0, 0.3),
       ]},
     ],
   },
   {
-    id: "fluid", name: "Fluid", icon: "◎", desc: "Simplex noise fluid simulation",
+    id: "fluid", name: "Fluid", icon: "≋", desc: "Simplex noise flow field",
     paramGroups: [
       { label: "Noise", params: [
         S("fluidScale", "Scale", 0.0005, 0.01),
@@ -297,7 +245,7 @@ export const VISUAL_MODES: VisualModeInfo[] = [
     ],
   },
   {
-    id: "orbs", name: "Orbs", icon: "●", desc: "Gravitational orbs pulsing with audio",
+    id: "orbs", name: "Orbs", icon: "●", desc: "Gravitational orbs with glow",
     paramGroups: [
       { label: "Orbs", params: [
         S("orbCount", "Count", 3, 30, 1),
@@ -313,23 +261,22 @@ export const VISUAL_MODES: VisualModeInfo[] = [
     ],
   },
   {
-    id: "lissajous", name: "Lissajous", icon: "∞", desc: "Lissajous curves and spirographs",
+    id: "voronoi", name: "Voronoi", icon: "⬡", desc: "Organic cell tessellation",
     paramGroups: [
-      { label: "Curve", params: [
-        S("lissFreqX", "Freq X", 1, 12, 1),
-        S("lissFreqY", "Freq Y", 1, 12, 1),
-        S("lissPhase", "Phase", 0, 6.28),
-        S("lissRotation", "Rotation", 0, 2),
+      { label: "Cells", params: [
+        S("voronoiPoints", "Points", 5, 80, 1),
+        S("voronoiEdgeWidth", "Edge width", 0.5, 4),
+        S("voronoiFill", "Fill", 0, 1, 1, (v) => v > 0.5 ? "On" : "Off"),
       ]},
-      { label: "Style", params: [
-        S("lissLayers", "Layers", 1, 12, 1),
-        S("lissLineWidth", "Line width", 0.3, 4),
+      { label: "Motion", params: [
+        S("speed", "Speed", 0.1, 3),
         S("intensity", "Intensity", 0.3, 2),
+        S("beatForce", "Beat force", 0, 10),
       ]},
     ],
   },
   {
-    id: "fractal", name: "Fractal", icon: "BR", desc: "Recursive fractal trees",
+    id: "fractal", name: "Fractal", icon: "BR", desc: "Recursive branching trees",
     paramGroups: [
       { label: "Structure", params: [
         S("fractalDepth", "Depth", 3, 12, 1),
