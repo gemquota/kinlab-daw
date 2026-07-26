@@ -1,0 +1,1 @@
+export { useAudioSync } from "./useAudioSync";
