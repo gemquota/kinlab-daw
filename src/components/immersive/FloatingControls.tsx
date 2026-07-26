@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useDAWStore } from "@/store/daw.store";
 import { useWaveformStore } from "@/store/waveform.store";
-import { getEffects, setEffects, type EffectsState } from "@/audio/audioEngine";
+import { getEffects, setEffects, resumeAudio, type EffectsState } from "@/audio/audioEngine";
 import { cn } from "@/lib/cn";
 
 export function FloatingControls() {
@@ -54,7 +54,7 @@ function TransportPill() {
     <div className="flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/[0.06] shadow-2xl shadow-black/50">
       {/* Play/Stop */}
       <button
-        onClick={() => setPlaying(!playing)}
+        onClick={() => { resumeAudio(); setPlaying(!playing); }}
         className={cn(
           "w-10 h-10 rounded-xl flex items-center justify-center text-lg transition-all duration-300",
           playing

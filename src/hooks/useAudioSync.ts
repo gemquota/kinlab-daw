@@ -3,24 +3,46 @@ import { useDAWStore } from "@/store/daw.store";
 import {
   resumeAudio, setMasterVolume,
   createVoice, updateVoice, destroyAllVoices,
+  getAudioContext,
 } from "@/audio/audioEngine";
 
 /**
- * Syncs the DAW store state with the Web Audio engine.
- * Creates/destroys voices per track, applies volume/pan/filter,
- * and runs the main playback loop.
+ * Syncs DAW store → Web Audio engine.
+ * Creates voices once per track, then updates params each frame.
+ * Never destroys/recreates oscillators unless waveform type changes.
  */
 export function useAudioSync() {
   const rafRef = useRef<number>(0);
   const lastTickRef = useRef<number>(0);
-  const prevTrackIdsRef = useRef<string[]>([]);
+  const createdTracksRef = useRef<Set<string>>(new Set());
 
   const tick = useCallback(() => {
     const { playing, currentTime, loopEnabled, loopStart, loopEnd, tracks, masterVolume } = useDAWStore.getState();
     const now = performance.now() / 1000;
 
+    // Always keep audio context alive
+    getAudioContext();
+
     if (!playing) {
       lastTickRef.current = 0;
+      // Still update voice params even when paused (so changes take effect)
+      const hasSolo = tracks.some((t) => t.solo);
+      for (const track of tracks) {
+        ensureVoice(track.id);
+        const effectiveVol = hasSolo
+          ? (track.solo ? track.volume : 0)
+          : (track.muted ? 0 : track.volume);
+        updateVoice(track.id, {
+          frequency: track.frequency,
+          amplitude: effectiveVol * masterVolume * track.amplitude * (playing ? 1 : 0),
+          waveformType: track.waveformType,
+          pan: track.pan,
+          filterFreq: track.filterFreq,
+          filterQ: track.filterQ,
+          detune: track.detune,
+        });
+      }
+      setMasterVolume(masterVolume);
       rafRef.current = requestAnimationFrame(tick);
       return;
     }
@@ -34,24 +56,14 @@ export function useAudioSync() {
     }
     useDAWStore.setState({ currentTime: newTime } as never);
 
-    const trackIds = tracks.map((t) => t.id);
     const hasSolo = tracks.some((t) => t.solo);
 
-    // Destroy removed tracks
-    for (const id of prevTrackIdsRef.current) {
-      if (!trackIds.includes(id)) {
-        // voice cleanup handled by audio engine
-      }
-    }
-    prevTrackIdsRef.current = trackIds;
-
-    // Update/create voices
+    // Ensure all track voices exist, then update
     for (const track of tracks) {
+      ensureVoice(track.id);
       const effectiveVol = hasSolo
         ? (track.solo ? track.volume : 0)
         : (track.muted ? 0 : track.volume);
-
-      createVoice(track.id);
       updateVoice(track.id, {
         frequency: track.frequency,
         amplitude: effectiveVol * masterVolume * track.amplitude,
@@ -64,26 +76,39 @@ export function useAudioSync() {
     }
 
     setMasterVolume(masterVolume);
-
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
+  function ensureVoice(trackId: string) {
+    if (!createdTracksRef.current.has(trackId)) {
+      createVoice(trackId);
+      createdTracksRef.current.add(trackId);
+    }
+  }
+
   useEffect(() => {
     lastTickRef.current = 0;
+    createdTracksRef.current.clear();
     rafRef.current = requestAnimationFrame(tick);
 
+    // Resume audio on first user interaction
     const handler = () => { resumeAudio(); };
     document.addEventListener("click", handler, { once: true });
     document.addEventListener("keydown", handler, { once: true });
+    document.addEventListener("touchstart", handler, { once: true });
 
     return () => {
       cancelAnimationFrame(rafRef.current);
       document.removeEventListener("click", handler);
       document.removeEventListener("keydown", handler);
+      document.removeEventListener("touchstart", handler);
     };
   }, [tick]);
 
   useEffect(() => {
-    return () => destroyAllVoices();
+    return () => {
+      destroyAllVoices();
+      createdTracksRef.current.clear();
+    };
   }, []);
 }
