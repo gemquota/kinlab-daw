@@ -31,8 +31,8 @@ describe("settingsStore", () => {
   });
 
   it("should set defaultWorkspace", () => {
-    useSettingsStore.getState().setDefaultWorkspace("taylor");
-    expect(useSettingsStore.getState().defaultWorkspace).toBe("taylor");
+    useSettingsStore.getState().setDefaultWorkspace("waveform");
+    expect(useSettingsStore.getState().defaultWorkspace).toBe("waveform");
   });
 
   it("should set densityMode", () => {

@@ -29,8 +29,8 @@ describe("sessionStore", () => {
   });
 
   it("should set workspace", () => {
-    useSessionStore.getState().setWorkspace("taylor");
-    expect(useSessionStore.getState().activeWorkspace).toBe("taylor");
+    useSessionStore.getState().setWorkspace("waveform");
+    expect(useSessionStore.getState().activeWorkspace).toBe("waveform");
   });
 
   it("should set selectedDerivative", () => {

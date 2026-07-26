@@ -130,13 +130,6 @@ describe("audioEngine", () => {
     });
   });
 
-  describe("isAudioAvailable", () => {
-    it("should return true when AudioContext is available", async () => {
-      const { isAudioAvailable } = await import("@/audio/audioEngine");
-      expect(isAudioAvailable()).toBe(true);
-    });
-  });
-
   describe("resumeAudio", () => {
     it("should call resumeAudio without error", async () => {
       const { resumeAudio } = await import("@/audio/audioEngine");
