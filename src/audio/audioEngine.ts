@@ -1,6 +1,6 @@
 /**
  * Web Audio API engine with effects chain.
- * Oscillators → gain → pan → filter → preGain → compressor → dry/reverb/delay → master → analyser → output
+ * drumSynth → drumGains[type] → compressor → dry/reverb/delay → masterFilter → masterGain → analyser → output
  */
 
 let ctx: AudioContext | null = null;
@@ -14,6 +14,10 @@ let delayFeedback: GainNode | null = null;
 let delayMix: GainNode | null = null;
 let dryGain: GainNode | null = null;
 let preGain: GainNode | null = null;
+let masterFilter: BiquadFilterNode | null = null;
+
+// Per-drum gain nodes — persistent, controlled by store
+const drumGainNodes: Map<string, GainNode> = new Map();
 
 export interface TrackVoice {
   id: string;
@@ -86,6 +90,12 @@ export function getAudioContext(): AudioContext {
     compressor.attack.value = 0.002;
     compressor.release.value = 0.08;
 
+    // Master filter — lowpass, default open
+    masterFilter = ctx.createBiquadFilter();
+    masterFilter.type = "lowpass";
+    masterFilter.frequency.value = 20000;
+    masterFilter.Q.value = 1;
+
     masterGain = ctx.createGain();
     masterGain.gain.value = 0.75;
 
@@ -109,11 +119,10 @@ export function getAudioContext(): AudioContext {
     delayMix.gain.value = currentEffects.delayMix;
 
     // Signal chain:
-    // voices → preGain → compressor → dryGain ──────────────→ masterGain
-    //                              → reverbNode → reverbGain ──→ masterGain
-    //                              → delayNode → delayFeedback ↩
-    //                              → delayNode → delayMix ──────→ masterGain
-    // masterGain → masterAnalyser → destination
+    // preGain → compressor → dryGain ──────────────────→ masterFilter → masterGain → masterAnalyser → destination
+    //                      → reverbNode → reverbGain ──→ masterFilter
+    //                      → delayNode → delayFeedback ↩
+    //                      → delayNode → delayMix ─────→ masterFilter
 
     preGain.connect(compressor);
 
@@ -122,15 +131,15 @@ export function getAudioContext(): AudioContext {
     compressor.connect(delayNode);
 
     reverbNode.connect(reverbGain);
-    reverbGain.connect(masterGain);
+    reverbGain.connect(masterFilter);
 
     delayNode.connect(delayFeedback);
     delayFeedback.connect(delayNode);
     delayNode.connect(delayMix);
-    delayMix.connect(masterGain);
+    delayMix.connect(masterFilter);
 
-    dryGain.connect(masterGain);
-
+    dryGain.connect(masterFilter);
+    masterFilter.connect(masterGain);
     masterGain.connect(masterAnalyser);
     masterAnalyser.connect(ctx.destination);
   }
@@ -152,11 +161,67 @@ export function getMasterAnalyser(): AnalyserNode | null {
 }
 
 export function getMasterNode(): GainNode {
-  getAudioContext(); // ensure initialized
+  getAudioContext();
   return masterGain!;
 }
 
-/* ── Track voices ── */
+/* ─── Per-drum gain nodes ─── */
+
+/**
+ * Get or create a gain node for a specific drum type.
+ * All triggers for the same drum type route through this node.
+ */
+export function getDrumGain(type: string): GainNode {
+  getAudioContext();
+  let gain = drumGainNodes.get(type);
+  if (!gain) {
+    gain = ctx!.createGain();
+    gain.gain.value = 1;
+    gain.connect(preGain!);
+    drumGainNodes.set(type, gain);
+  }
+  return gain;
+}
+
+/**
+ * Set volume for a specific drum type (0–1).
+ */
+export function setDrumVolume(type: string, volume: number): void {
+  const gain = drumGainNodes.get(type);
+  if (gain) {
+    gain.gain.setTargetAtTime(Math.max(0, Math.min(1, volume)), getAudioContext().currentTime, 0.01);
+  }
+}
+
+/**
+ * Mute/unmute a specific drum type.
+ */
+export function setDrumMute(type: string, muted: boolean): void {
+  const gain = drumGainNodes.get(type);
+  if (gain) {
+    gain.gain.setTargetAtTime(muted ? 0 : 1, getAudioContext().currentTime, 0.01);
+  }
+}
+
+/**
+ * Set master filter cutoff frequency.
+ */
+export function setMasterFilterFreq(freq: number): void {
+  if (masterFilter) {
+    masterFilter.frequency.setTargetAtTime(freq, getAudioContext().currentTime, 0.02);
+  }
+}
+
+/**
+ * Set master filter resonance (Q).
+ */
+export function setMasterFilterQ(q: number): void {
+  if (masterFilter) {
+    masterFilter.Q.setTargetAtTime(q, getAudioContext().currentTime, 0.02);
+  }
+}
+
+/* ── Track voices (legacy, for potential future use) ── */
 
 export interface VoiceParams {
   frequency: number;

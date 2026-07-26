@@ -3,7 +3,7 @@
  * Step Sequences, MIDI Tracks, Scale Series, Arpeggio Patterns.
  */
 
-import type { DAWTrack } from "@/store/daw.store";
+type DAWTrack = { name?: string; waveformType: OscillatorType | "custom"; frequency: number; amplitude: number; filterFreq: number; filterQ: number; volume: number; pan: number; detune: number; color: string; };
 import type { ArpConfig } from "./arpeggios";
 import type { NoteName } from "./scales";
 import type { MIDITrack } from "./midiTrack";

@@ -1,15 +1,33 @@
+import { lazy, Suspense } from "react";
 import { createHashRouter, type RouteObject } from "react-router-dom";
 import { AppShell } from "./AppShell";
+import { LoadingSpinner } from "@/components/common/LoadingSpinner";
 
-import { Waveform } from "@/pages/Waveform";
+// Task 2.1.1: Lazy load Waveform page
+const Waveform = lazy(() => import("@/pages/Waveform").then(m => ({ default: m.Waveform })));
 
 const routes: RouteObject[] = [
   {
     path: "/",
     element: <AppShell />,
     children: [
-      { index: true, element: <Waveform /> },
-      { path: "waveform", element: <Waveform /> },
+      {
+        index: true,
+        element: (
+          // Task 2.1.2: Suspense wrapper with loading fallback
+          <Suspense fallback={<LoadingSpinner />}>
+            <Waveform />
+          </Suspense>
+        ),
+      },
+      {
+        path: "waveform",
+        element: (
+          <Suspense fallback={<LoadingSpinner />}>
+            <Waveform />
+          </Suspense>
+        ),
+      },
       {
         path: "*",
         element: (

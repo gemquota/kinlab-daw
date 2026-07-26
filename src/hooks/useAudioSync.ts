@@ -1,55 +1,66 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useDAWStore } from "@/store/daw.store";
-import { resumeAudio, setMasterVolume, getAudioContext } from "@/audio/audioEngine";
+import { resumeAudio, setMasterVolume, setDrumVolume, setDrumMute, setEffects, setMasterFilterFreq, getAudioContext } from "@/audio/audioEngine";
 import { triggerDrum, type DrumType } from "@/audio/drumSynth";
 import { FILTHY_TECHNO, getHitsOnStep, type PatternDef } from "@/audio/technoSequencer";
 
 /**
  * Techno sequencer audio sync.
- * Triggers drum hits on a 16th-note grid using the Web Audio drum synth.
+ * Drives the 16th-note grid, triggers drums, applies mixer/effects state.
  */
-
 export function useAudioSync() {
   const rafRef = useRef<number>(0);
   const lastStepTimeRef = useRef<number>(0);
   const currentStepRef = useRef<number>(0);
 
   const tick = useCallback(() => {
-    const { playing, bpm, masterVolume } = useDAWStore.getState();
-    const ac = getAudioContext();
+    const state = useDAWStore.getState();
+    const { playing, bpm, masterVolume } = state;
 
     if (!playing) {
       rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
+    const ac = getAudioContext();
     const now = ac.currentTime;
 
-    // 16th note duration = (60 / bpm) / 4
     const sixteenthDuration = (60 / bpm) / 4;
 
-    // Check if we need to advance
     if (now - lastStepTimeRef.current >= sixteenthDuration) {
       lastStepTimeRef.current = now;
       const step = currentStepRef.current;
 
-      // Get hits for this step from the active pattern
-      const pattern: PatternDef = useDAWStore.getState().activePattern ?? FILTHY_TECHNO;
+      const pattern: PatternDef = state.activePattern ?? FILTHY_TECHNO;
       const hits = getHitsOnStep(pattern, step);
 
       for (const hit of hits) {
-        const hitTime = now; // trigger immediately
-        triggerDrum(hit.type as DrumType, hitTime);
+        triggerDrum(hit.type as DrumType, now);
       }
 
-      // Advance step
       currentStepRef.current = (step + 1) % 16;
-
-      // Update DAW store step position
       useDAWStore.setState({ currentStep: currentStepRef.current } as never);
     }
 
+    // Sync master volume
     setMasterVolume(masterVolume);
+
+    // Sync per-drum volumes and mutes
+    const drumTypes: DrumType[] = ["kick", "hat", "hatOpen", "clap", "bass", "perc", "tom", "crash"];
+    for (const type of drumTypes) {
+      setDrumVolume(type, state.drumVolumes[type] ?? 1);
+      setDrumMute(type, state.drumMutes[type] ?? false);
+    }
+
+    // Sync effects
+    setEffects({
+      reverbAmount: state.reverb,
+      delayMix: state.delayMix,
+    });
+
+    // Sync master filter
+    setMasterFilterFreq(state.filterCutoff);
+
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 

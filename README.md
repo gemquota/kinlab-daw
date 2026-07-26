@@ -1,32 +1,133 @@
-# React + TypeScript + Vite
+# VOID — Audiovisual Synthesizer
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A real-time audiovisual synthesizer built with React, TypeScript, and Web Audio API. Create immersive audio experiences with procedural visualization.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- 🎵 **Real-time synthesis** — Oscillator-based audio with effects chain (reverb, delay, compression)
+- 🎨 **Immersive canvas** — Fullscreen WebGL visualization with particle effects
+- 🎛️ **Transport controls** — Play/pause, BPM, volume, pattern selection
+- 🎹 **Techno patterns** — Pre-built patterns (Filthy Techno, Minimal, Industrial, Acid, Rumble)
+- 🔊 **Audio engine** — Web Audio API with filters, panning, and effects routing
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** with TypeScript
+- **Zustand** for state management
+- **Tailwind CSS** for styling
+- **Vite** for build tooling
+- **Web Audio API** for synthesis
+- **Canvas API** for visualization
 
-## Expanding the Oxlint configuration
+## Getting Started
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### Prerequisites
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd kinlab-daw
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Available Scripts
+
+```bash
+npm run dev        # Start dev server (http://localhost:5173)
+npm run build      # Production build
+npm run preview    # Preview production build
+npm run test       # Run tests
+npm run test:run   # Run tests once
+npm run lint       # Run linter
+npm run format     # Format code
+```
+
+## Usage
+
+1. **Start playback** — Click the play button or press `Space`
+2. **Adjust BPM** — Use +/- buttons or type in the BPM field (60-200)
+3. **Change volume** — Drag the volume slider
+4. **Switch patterns** — Click the pattern name to cycle through presets
+5. **Visualize** — Watch the canvas respond to audio in real-time
+
+## Architecture
+
+```
+src/
+├── app/           # App shell, router, providers
+├── audio/         # Web Audio API engine
+├── components/    # React components
+│   ├── common/    # Shared components (ErrorFallback, LoadingSpinner)
+│   ├── daw/       # DAW-specific components
+│   ├── immersive/ # Canvas and floating controls
+│   └── layout/    # Layout components (TopToolbar)
+├── hooks/         # Custom React hooks
+├── pages/         # Route pages (Waveform)
+├── store/         # Zustand state management
+└── utils/         # Utility functions
+```
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Space` | Play / Pause |
+| `Escape` | Close panel |
+
+## State Management
+
+The app uses Zustand for state management with the following stores:
+
+- **DAW Store** — Playback, tracks, patterns, BPM
+- **Settings Store** — UI preferences
+- **Session Store** — Session tracking
+- **Theme Store** — Light/dark mode
+
+### Using Store Selectors
+
+For optimal performance, use individual selectors:
+
+```tsx
+// ✅ Good — only re-renders when 'playing' changes
+const playing = useDAWStore((s) => s.playing);
+const setPlaying = useDAWStore((s) => s.setPlaying);
+
+// ❌ Bad — re-renders on every state change
+const daw = useDAWStore();
+```
+
+## Testing
+
+The project includes unit tests for:
+- Store logic
+- Audio engine
+- Custom hooks
+- UI components
+
+Run tests with:
+```bash
+npm run test:run
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Run tests to ensure they pass
+6. Submit a pull request
+
+## License
+
+MIT

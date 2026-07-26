@@ -1,12 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDAWStore } from "@/store/daw.store";
 import { useAudioSync } from "@/hooks/useAudioSync";
 import { ImmersiveCanvas, VisualModeSelector } from "@/components/immersive/ImmersiveCanvas";
 import { FloatingControls } from "@/components/immersive/FloatingControls";
 
+/**
+ * Main Waveform page — fullscreen canvas with audio visualization.
+ * Renders the immersive audio canvas with floating transport controls.
+ */
 export function Waveform() {
   const [showOverlay, setShowOverlay] = useState(true);
-  const daw = useDAWStore();
+
+  // Task 1.1.1 & 1.1.2: Use selectors to prevent unnecessary re-renders
+  const playing = useDAWStore((s) => s.playing);
+  const setPlaying = useDAWStore((s) => s.setPlaying);
 
   useAudioSync();
 
@@ -16,23 +23,29 @@ export function Waveform() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === " ") { e.preventDefault(); daw.setPlaying(!daw.playing); }
+  // Task 4.3: Keyboard shortcuts with proper callback
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === " ") {
+      e.preventDefault();
+      setPlaying(!playing);
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [daw]);
+  }, [playing, setPlaying]);
+
+  useEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
 
   const { canvasRef, visualMode, setVisualMode } = ImmersiveCanvas();
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black">
-      {/* Fullscreen canvas */}
+      {/* Task 4.1.1 & 4.1.2: Accessible canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full cursor-crosshair"
+        aria-label="Audio waveform visualization"
+        role="img"
       />
 
       {/* Top bar — visual mode selector + brand */}
