@@ -1,34 +1,28 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDAWStore } from "@/store/daw.store";
+import { useVisualStore } from "@/store/visual.store";
 import { useAudioSync } from "@/hooks/useAudioSync";
 import { ImmersiveCanvas, VisualModeSelector } from "@/components/immersive/ImmersiveCanvas";
 import { FloatingControls } from "@/components/immersive/FloatingControls";
+import { VisualDrawer } from "@/components/immersive/VisualDrawer";
+import { type VisualMode } from "@/visual/visualParams";
 
-/**
- * Main Waveform page — fullscreen canvas with audio visualization.
- * Renders the immersive audio canvas with floating transport controls.
- */
 export function Waveform() {
   const [showOverlay, setShowOverlay] = useState(true);
-
-  // Task 1.1.1 & 1.1.2: Use selectors to prevent unnecessary re-renders
+  const [visualMode, setVisualMode] = useState<VisualMode>("nebula");
   const playing = useDAWStore((s) => s.playing);
   const setPlaying = useDAWStore((s) => s.setPlaying);
+  const params = useVisualStore((s) => s.params);
 
   useAudioSync();
 
-  // Hide overlay hint after 4 seconds
   useEffect(() => {
     const timer = setTimeout(() => setShowOverlay(false), 4000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Task 4.3: Keyboard shortcuts with proper callback
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === " ") {
-      e.preventDefault();
-      setPlaying(!playing);
-    }
+    if (e.key === " ") { e.preventDefault(); setPlaying(!playing); }
   }, [playing, setPlaying]);
 
   useEffect(() => {
@@ -36,11 +30,10 @@ export function Waveform() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const { canvasRef, visualMode, setVisualMode } = ImmersiveCanvas();
+  const { canvasRef } = ImmersiveCanvas({ params });
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black">
-      {/* Task 4.1.1 & 4.1.2: Accessible canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full cursor-crosshair"
@@ -48,7 +41,7 @@ export function Waveform() {
         role="img"
       />
 
-      {/* Top bar — visual mode selector + brand */}
+      {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 pointer-events-none">
         <div className="flex items-center gap-3 pointer-events-auto">
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/30 backdrop-blur-xl border border-white/[0.06]">
@@ -61,12 +54,20 @@ export function Waveform() {
         </div>
       </div>
 
-      {/* Center: floating controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-        <FloatingControls />
+      {/* Bottom: transport + visual drawer */}
+      <div className="absolute bottom-0 left-0 right-0 z-20 pointer-events-none">
+        <div className="pointer-events-auto">
+          {/* Transport — centered above the drawer */}
+          <div className="flex justify-center pb-3">
+            <FloatingControls />
+          </div>
+
+          {/* Visual parameter drawer */}
+          <VisualDrawer visualMode={visualMode} onModeChange={setVisualMode} />
+        </div>
       </div>
 
-      {/* Initial overlay hint */}
+      {/* Overlay hint */}
       {showOverlay && (
         <div className="absolute inset-0 z-40 flex items-center justify-center pointer-events-none animate-fade-in">
           <div className="text-center space-y-3 animate-scale-in">
@@ -74,7 +75,7 @@ export function Waveform() {
               ∿
             </div>
             <div className="text-white/60 text-sm font-medium">Click anywhere to begin</div>
-            <div className="text-white/25 text-[10px]">Space to play · Click patterns to cycle</div>
+            <div className="text-white/25 text-[10px]">Space to play · ▲ VISUALS for parameters</div>
           </div>
         </div>
       )}
