@@ -5,6 +5,11 @@ import { cn } from "@/lib/cn";
 import type { DrumType } from "@/audio/drumSynth";
 
 const DRUM_CHANNELS: { type: DrumType; label: string; color: string }[] = [
+
+/**
+ * Floating transport controls overlay.
+ * Renders play/pause, BPM stepper, step indicators, and pattern selector.
+ */
   { type: "kick", label: "KICK", color: "#3b82f6" },
   { type: "hat", label: "HAT", color: "#22c55e" },
   { type: "clap", label: "CLAP", color: "#f97316" },
@@ -228,15 +233,18 @@ function TransportPill() {
       <div className="flex items-center gap-1">
         <button
           onClick={() => setBpm(bpm - 1)}
+          aria-label="Decrease BPM"
           className="w-6 h-6 rounded-lg bg-white/[0.04] text-white/30 hover:text-white/60 flex items-center justify-center text-xs"
         >−</button>
         <input
           type="number" value={bpm}
+          aria-label="BPM value"
           onChange={(e) => setBpm(parseInt(e.target.value) || 135)}
           className="w-10 text-center bg-transparent text-white/80 font-mono text-sm focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
         />
         <button
           onClick={() => setBpm(bpm + 1)}
+          aria-label="Increase BPM"
           className="w-6 h-6 rounded-lg bg-white/[0.04] text-white/30 hover:text-white/60 flex items-center justify-center text-xs"
         >+</button>
         <span className="text-[9px] text-white/20 font-mono">BPM</span>
@@ -253,6 +261,7 @@ function PatternPill() {
   return (
     <button
       onClick={cyclePattern}
+      aria-label="Current pattern"
       className="px-4 py-1 rounded-xl bg-black/20 text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-white/[0.04] transition-all duration-300 text-[10px] font-medium tracking-wide"
     >
       {activePattern.name} <span className="text-white/15 ml-1">✦</span>

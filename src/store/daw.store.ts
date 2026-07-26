@@ -5,6 +5,12 @@ import type { DrumType } from "@/audio/drumSynth";
 
 export type SidePanel = null | "mixer" | "effects";
 
+/**
+ * DAW global state store with Zustand persist middleware.
+ * Manages playback, BPM, mixer, effects, patterns, and UI state.
+ * Persisted to localStorage as "void-daw-v3".
+ */
+
 interface DAWStore {
   bpm: number;
   playing: boolean;

@@ -128,6 +128,18 @@ npm run test:run
 5. Run tests to ensure they pass
 6. Submit a pull request
 
+## Changelog
+
+### v0.2.0 (2026-07-26)
+
+- **Performance**: Fixed redundant store selectors in Waveform and FloatingControls
+- **Error Handling**: Added ErrorBoundary with ErrorFallback UI component
+- **Accessibility**: Added ARIA labels to all interactive controls
+- **Security**: Added Content-Security-Policy meta tag to index.html
+- **Testing**: Added test suite for audio engine, hooks, stores, and components
+- **Loading**: Implemented React.lazy code splitting with Suspense fallback
+- **Documentation**: Added JSDoc to audio engine, store, and components
+
 ## License
 
 MIT

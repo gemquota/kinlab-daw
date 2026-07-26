@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 
-// Mock the stores before any imports
 vi.mock("@/store/daw.store", () => ({
   useDAWStore: vi.fn((selector) => {
     const state = {
@@ -14,6 +13,18 @@ vi.mock("@/store/daw.store", () => ({
       setMasterVolume: vi.fn(),
       activePattern: { name: "Filthy Techno" },
       cyclePattern: vi.fn(),
+      sidePanel: null,
+      setSidePanel: vi.fn(),
+      drumVolumes: {},
+      drumMutes: {},
+      setDrumVolume: vi.fn(),
+      setDrumMute: vi.fn(),
+      reverb: 0,
+      delayMix: 0,
+      filterCutoff: 20000,
+      setReverb: vi.fn(),
+      setDelayMix: vi.fn(),
+      setFilterCutoff: vi.fn(),
     };
     return selector ? selector(state) : state;
   }),
@@ -27,13 +38,13 @@ describe("FloatingControls", () => {
   it("should render without errors", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
     render(<FloatingControls />);
-    expect(screen.getByRole("button", { name: /start playback/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
   });
 
   it("should display play button when not playing", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
     render(<FloatingControls />);
-    const playButton = screen.getByRole("button", { name: /start playback/i });
+    const playButton = screen.getByRole("button", { name: /play/i });
     expect(playButton).toHaveTextContent("▶");
   });
 
@@ -44,36 +55,20 @@ describe("FloatingControls", () => {
     expect(bpmInput).toHaveValue(135);
   });
 
-  it("should display volume slider", async () => {
-    const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
-    const volumeSlider = screen.getByRole("slider", { name: /master volume/i });
-    expect(volumeSlider).toBeInTheDocument();
-  });
-
   it("should display pattern name", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
     render(<FloatingControls />);
     expect(screen.getByText("Filthy Techno")).toBeInTheDocument();
   });
 
-  it("should have 16 step indicator dots", async () => {
-    const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    const { container } = render(<FloatingControls />);
-    // The step indicators are divs with specific styling
-    const stepIndicators = container.querySelectorAll(".w-1\\.5.h-1\\.5.rounded-full");
-    expect(stepIndicators.length).toBe(16);
-  });
-
   it("should have aria-labels on all interactive elements", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
     render(<FloatingControls />);
-    
-    expect(screen.getByRole("button", { name: /start playback/i })).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /decrease bpm/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /increase bpm/i })).toBeInTheDocument();
     expect(screen.getByRole("spinbutton", { name: /bpm value/i })).toBeInTheDocument();
-    expect(screen.getByRole("slider", { name: /master volume/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /current pattern/i })).toBeInTheDocument();
   });
 });

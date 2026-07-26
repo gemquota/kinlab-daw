@@ -1,18 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock requestAnimationFrame before any imports
-const mockRAF = vi.fn((callback: FrameRequestCallback) => {
-  return setTimeout(callback, 0) as unknown as number;
-});
-
-const mockCAF = vi.fn((handle: number) => {
-  clearTimeout(handle);
-});
-
-vi.stubGlobal("requestAnimationFrame", mockRAF);
-vi.stubGlobal("cancelAnimationFrame", mockCAF);
-
-// Mock audio engine
 vi.mock("@/audio/audioEngine", () => ({
   resumeAudio: vi.fn(),
   setMasterVolume: vi.fn(),
@@ -23,26 +10,18 @@ vi.mock("@/audio/audioEngine", () => ({
   createVoice: vi.fn(),
   updateVoice: vi.fn(),
   destroyAllVoices: vi.fn(),
-  getAudioContext: vi.fn(() => ({
-    currentTime: 0,
-  })),
+  getAudioContext: vi.fn(() => ({ currentTime: 0 })),
 }));
 
-// Mock drum synth
 vi.mock("@/audio/drumSynth", () => ({
   triggerDrum: vi.fn(),
 }));
 
-// Mock techno sequencer
 vi.mock("@/audio/technoSequencer", () => ({
-  FILTHY_TECHNO: {
-    bpm: 135,
-    steps: [],
-  },
+  FILTHY_TECHNO: { bpm: 135, steps: [] },
   getHitsOnStep: vi.fn(() => []),
 }));
 
-// Mock store
 vi.mock("@/store/daw.store", () => ({
   useDAWStore: {
     getState: vi.fn(() => ({
@@ -57,13 +36,20 @@ vi.mock("@/store/daw.store", () => ({
 }));
 
 describe("useAudioSync", () => {
+  let originalRAF: typeof globalThis.requestAnimationFrame;
+  let originalCAF: typeof globalThis.cancelAnimationFrame;
+
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.useFakeTimers();
+    originalRAF = globalThis.requestAnimationFrame;
+    originalCAF = globalThis.cancelAnimationFrame;
+    globalThis.requestAnimationFrame = vi.fn(() => 1);
+    globalThis.cancelAnimationFrame = vi.fn();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    globalThis.requestAnimationFrame = originalRAF;
+    globalThis.cancelAnimationFrame = originalCAF;
+    vi.restoreAllMocks();
   });
 
   it("should export a function", async () => {
@@ -74,8 +60,7 @@ describe("useAudioSync", () => {
   it("should be callable as a hook", async () => {
     const { useAudioSync } = await import("@/hooks/useAudioSync");
     const { renderHook } = await import("@testing-library/react");
-    
-    // The hook should not throw when called
+
     expect(() => {
       renderHook(() => useAudioSync());
     }).not.toThrow();
@@ -84,11 +69,9 @@ describe("useAudioSync", () => {
   it("should set up animation frame loop", async () => {
     const { useAudioSync } = await import("@/hooks/useAudioSync");
     const { renderHook } = await import("@testing-library/react");
-    
+
     renderHook(() => useAudioSync());
-    
-    // Should have called requestAnimationFrame at least once
-    // (The hook runs an animation loop)
-    expect(mockRAF).toHaveBeenCalled();
+
+    expect(globalThis.requestAnimationFrame).toHaveBeenCalled();
   });
 });
