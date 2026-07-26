@@ -35,10 +35,10 @@ export interface EffectsState {
 }
 
 let currentEffects: EffectsState = {
-  reverbAmount: 0.25,
+  reverbAmount: 0.35,
   delayTime: 0.375,
   delayFeedback: 0.3,
-  delayMix: 0.15,
+  delayMix: 0.18,
 };
 
 export function getEffects(): EffectsState {
@@ -80,11 +80,11 @@ export function getAudioContext(): AudioContext {
     preGain.gain.value = 1;
 
     compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -18;
-    compressor.knee.value = 12;
-    compressor.ratio.value = 4;
-    compressor.attack.value = 0.003;
-    compressor.release.value = 0.15;
+    compressor.threshold.value = -24;
+    compressor.knee.value = 8;
+    compressor.ratio.value = 6;
+    compressor.attack.value = 0.002;
+    compressor.release.value = 0.08;
 
     masterGain = ctx.createGain();
     masterGain.gain.value = 0.75;
@@ -149,6 +149,11 @@ export function setMasterVolume(v: number): void {
 
 export function getMasterAnalyser(): AnalyserNode | null {
   return masterAnalyser;
+}
+
+export function getMasterNode(): GainNode {
+  getAudioContext(); // ensure initialized
+  return masterGain!;
 }
 
 /* ── Track voices ── */

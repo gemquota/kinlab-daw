@@ -1,97 +1,63 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useDAWStore } from "@/store/daw.store";
-import {
-  resumeAudio, setMasterVolume,
-  createVoice, updateVoice, destroyAllVoices,
-  getAudioContext,
-} from "@/audio/audioEngine";
+import { resumeAudio, setMasterVolume, getAudioContext } from "@/audio/audioEngine";
+import { triggerDrum, type DrumType } from "@/audio/drumSynth";
+import { FILTHY_TECHNO, getHitsOnStep, type PatternDef } from "@/audio/technoSequencer";
 
 /**
- * Syncs DAW store → Web Audio engine.
- * Creates voices once per track, then updates params each frame.
- * Never destroys/recreates oscillators unless waveform type changes.
+ * Techno sequencer audio sync.
+ * Triggers drum hits on a 16th-note grid using the Web Audio drum synth.
  */
+
 export function useAudioSync() {
   const rafRef = useRef<number>(0);
-  const lastTickRef = useRef<number>(0);
-  const createdTracksRef = useRef<Set<string>>(new Set());
+  const lastStepTimeRef = useRef<number>(0);
+  const currentStepRef = useRef<number>(0);
 
   const tick = useCallback(() => {
-    const { playing, currentTime, loopEnabled, loopStart, loopEnd, tracks, masterVolume } = useDAWStore.getState();
-    const now = performance.now() / 1000;
-
-    // Always keep audio context alive
-    getAudioContext();
+    const { playing, bpm, masterVolume } = useDAWStore.getState();
+    const ac = getAudioContext();
 
     if (!playing) {
-      lastTickRef.current = 0;
-      // Still update voice params even when paused (so changes take effect)
-      const hasSolo = tracks.some((t) => t.solo);
-      for (const track of tracks) {
-        ensureVoice(track.id);
-        const effectiveVol = hasSolo
-          ? (track.solo ? track.volume : 0)
-          : (track.muted ? 0 : track.volume);
-        updateVoice(track.id, {
-          frequency: track.frequency,
-          amplitude: effectiveVol * masterVolume * track.amplitude * (playing ? 1 : 0),
-          waveformType: track.waveformType,
-          pan: track.pan,
-          filterFreq: track.filterFreq,
-          filterQ: track.filterQ,
-          detune: track.detune,
-        });
-      }
-      setMasterVolume(masterVolume);
       rafRef.current = requestAnimationFrame(tick);
       return;
     }
 
-    const dt = lastTickRef.current > 0 ? now - lastTickRef.current : 0;
-    lastTickRef.current = now;
+    const now = ac.currentTime;
 
-    let newTime = currentTime + dt;
-    if (loopEnabled && newTime >= loopEnd) {
-      newTime = loopStart + (newTime - loopEnd) % (loopEnd - loopStart);
-    }
-    useDAWStore.setState({ currentTime: newTime } as never);
+    // 16th note duration = (60 / bpm) / 4
+    const sixteenthDuration = (60 / bpm) / 4;
 
-    const hasSolo = tracks.some((t) => t.solo);
+    // Check if we need to advance
+    if (now - lastStepTimeRef.current >= sixteenthDuration) {
+      lastStepTimeRef.current = now;
+      const step = currentStepRef.current;
 
-    // Ensure all track voices exist, then update
-    for (const track of tracks) {
-      ensureVoice(track.id);
-      const effectiveVol = hasSolo
-        ? (track.solo ? track.volume : 0)
-        : (track.muted ? 0 : track.volume);
-      updateVoice(track.id, {
-        frequency: track.frequency,
-        amplitude: effectiveVol * masterVolume * track.amplitude,
-        waveformType: track.waveformType,
-        pan: track.pan,
-        filterFreq: track.filterFreq,
-        filterQ: track.filterQ,
-        detune: track.detune,
-      });
+      // Get hits for this step from the active pattern
+      const pattern: PatternDef = useDAWStore.getState().activePattern ?? FILTHY_TECHNO;
+      const hits = getHitsOnStep(pattern, step);
+
+      for (const hit of hits) {
+        const hitTime = now; // trigger immediately
+        triggerDrum(hit.type as DrumType, hitTime);
+      }
+
+      // Advance step
+      currentStepRef.current = (step + 1) % 16;
+
+      // Update DAW store step position
+      useDAWStore.setState({ currentStep: currentStepRef.current } as never);
     }
 
     setMasterVolume(masterVolume);
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  function ensureVoice(trackId: string) {
-    if (!createdTracksRef.current.has(trackId)) {
-      createVoice(trackId);
-      createdTracksRef.current.add(trackId);
-    }
-  }
-
   useEffect(() => {
-    lastTickRef.current = 0;
-    createdTracksRef.current.clear();
+    currentStepRef.current = 0;
+    lastStepTimeRef.current = 0;
     rafRef.current = requestAnimationFrame(tick);
 
-    // Resume audio on first user interaction
     const handler = () => { resumeAudio(); };
     document.addEventListener("click", handler, { once: true });
     document.addEventListener("keydown", handler, { once: true });
@@ -104,11 +70,4 @@ export function useAudioSync() {
       document.removeEventListener("touchstart", handler);
     };
   }, [tick]);
-
-  useEffect(() => {
-    return () => {
-      destroyAllVoices();
-      createdTracksRef.current.clear();
-    };
-  }, []);
 }
