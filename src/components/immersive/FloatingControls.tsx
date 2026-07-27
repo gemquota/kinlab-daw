@@ -1,10 +1,11 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { useDAWStore, type SidePanel } from "@/store/daw.store";
-import { useVisualStore } from "@/store/visual.store";
+
 import { resumeAudio } from "@/audio/audioEngine";
 import { cn } from "@/lib/cn";
-import { type VisualMode, type ParamDef, VISUAL_MODES, getModeInfo } from "@/visual/visualParams";
+import { type VisualMode, VISUAL_MODES } from "@/visual/visualParams";
 import type { DrumType } from "@/audio/drumSynth";
+import { InstrumentGrid } from "./InstrumentGrid";
 
 const DRUM_CHANNELS: { type: DrumType; label: string; color: string }[] = [
   { type: "kick", label: "KICK", color: "#3b82f6" },
@@ -29,7 +30,7 @@ export function FloatingControls({ visualMode, onModeChange }: FloatingControlsP
       {/* Side panel content — above transport */}
       {sidePanel === "mixer" && <MixerPanel />}
       {sidePanel === "effects" && <EffectsPanel />}
-      {sidePanel === "visuals" && <VisualParamsPanel visualMode={visualMode} />}
+      {sidePanel === "instruments" && <InstrumentGrid />}
 
       <TransportPill />
       <div className="flex gap-2 items-center">
@@ -37,6 +38,7 @@ export function FloatingControls({ visualMode, onModeChange }: FloatingControlsP
         <PatternPill />
         <VisualModeTabs mode={visualMode} onChange={onModeChange} />
         <PanelToggle id="effects" label="FX" />
+        <PanelToggle id="instruments" label="INSTR" />
       </div>
     </div>
   );
@@ -63,186 +65,6 @@ function VisualModeTabs({ mode, onChange }: { mode: VisualMode; onChange: (m: Vi
           <span className="hidden sm:inline">{m.name}</span>
         </button>
       ))}
-    </div>
-  );
-}
-
-/* ── Visual Params Panel (shown when "VIS" toggle is active) ── */
-function VisualParamsPanel({ visualMode }: { visualMode: VisualMode }) {
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const modeInfo = getModeInfo(visualMode);
-
-  const toggleGroup = useCallback((label: string) => {
-    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
-  }, []);
-
-  return (
-    <div className="w-[380px] px-4 py-3 rounded-2xl bg-black/50 backdrop-blur-2xl border border-white/[0.06] shadow-2xl shadow-black/60">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm">{modeInfo.icon}</span>
-          <span className="text-[10px] text-white/40 font-medium tracking-widest uppercase">{modeInfo.name}</span>
-        </div>
-        <ResetButton />
-      </div>
-      <div className="max-h-[35vh] overflow-y-auto space-y-1">
-        {modeInfo.paramGroups.map((group) => (
-          <ParamGroup
-            key={group.label}
-            group={group}
-            isOpen={openGroups[group.label] !== false}
-            onToggle={() => toggleGroup(group.label)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ParamGroup({
-  group, isOpen, onToggle,
-}: {
-  group: { label: string; params: ParamDef[] };
-  isOpen: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-1.5 text-[9px] font-medium text-white/40 hover:text-white/60 transition-colors"
-      >
-        <span className="tracking-wider uppercase">{group.label}</span>
-        <span className="text-white/20 text-[8px]">{isOpen ? "▼" : "▶"}</span>
-      </button>
-      {isOpen && (
-        <div className="px-3 pb-2 space-y-2">
-          {group.params.map((param) => (
-            <ParamSlider key={param.key} param={param} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ParamSlider({ param }: { param: ParamDef }) {
-  const value = useVisualStore((s) => s.params[param.key] as number);
-  const setParam = useVisualStore((s) => s.setParam);
-
-  const displayValue = param.format
-    ? param.format(value)
-    : param.step >= 1
-      ? value.toFixed(0)
-      : value.toFixed(2);
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-0.5">
-        <span className="text-[8px] text-white/30">{param.label}</span>
-        <span className="text-[8px] text-white/50 font-mono w-10 text-right">{displayValue}</span>
-      </div>
-      <input
-        aria-label={param.label}
-        type="range"
-        min={param.min}
-        max={param.max}
-        step={param.step}
-        value={value}
-        onChange={(e) => setParam(param.key, parseFloat(e.target.value) as never)}
-        className="w-full h-[2px] rounded-full appearance-none bg-white/[0.08] cursor-pointer"
-      />
-    </div>
-  );
-}
-
-function ResetButton() {
-  const resetParams = useVisualStore((s) => s.resetParams);
-  return (
-    <button
-      onClick={resetParams}
-      className="text-[9px] text-white/20 hover:text-white/50 transition-colors px-2 py-0.5 rounded hover:bg-white/[0.04]"
-    >
-      Reset
-    </button>
-  );
-}
-
-/* ── Panel Toggle ── */
-function PanelToggle({ id, label }: { id: SidePanel; label: string }) {
-  const active = useDAWStore((s) => s.sidePanel);
-  const setSidePanel = useDAWStore((s) => s.setSidePanel);
-
-  return (
-    <button
-      aria-label={`${active === id ? "Close" : "Open"} ${label} panel`}
-      onClick={() => setSidePanel(active === id ? null : id)}
-      className={cn(
-        "px-3 py-1 rounded-xl text-[10px] font-medium tracking-wider transition-all duration-300",
-        active === id
-          ? "bg-white/12 text-white/80 border border-white/[0.1]"
-          : "bg-black/20 text-white/30 border border-white/[0.04] hover:text-white/50",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-/* ── Mixer Panel ── */
-function MixerPanel() {
-  const drumVolumes = useDAWStore((s) => s.drumVolumes);
-  const drumMutes = useDAWStore((s) => s.drumMutes);
-  const setDrumVolume = useDAWStore((s) => s.setDrumVolume);
-  const setDrumMute = useDAWStore((s) => s.setDrumMute);
-  const masterVolume = useDAWStore((s) => s.masterVolume);
-  const setMasterVolume = useDAWStore((s) => s.setMasterVolume);
-  return (
-    <div className="w-[380px] px-4 py-3 rounded-2xl bg-black/50 backdrop-blur-2xl border border-white/[0.06] shadow-2xl shadow-black/60">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] text-white/40 font-medium tracking-widest uppercase">Mixer</span>
-        <div className="flex items-center gap-2">
-          <label className="text-[9px] text-white/25">MASTER</label>
-          <input
-            type="range" min={0} max={1} step={0.01} value={masterVolume}
-            aria-label="Master volume"
-            onChange={(e) => setMasterVolume(parseFloat(e.target.value))}
-            className="w-14 h-[2px] rounded-full appearance-none bg-white/[0.1]"
-          />
-          <span className="text-[9px] text-white/40 font-mono w-7 text-right">{(masterVolume * 100).toFixed(0)}</span>
-        </div>
-      </div>
-      <div className="flex gap-2">
-        {DRUM_CHANNELS.map(({ type, label, color }) => {
-          const vol = drumVolumes[type] ?? 1;
-          const muted = drumMutes[type] ?? false;
-          return (
-            <div key={type} className="flex-1 flex flex-col items-center gap-1">
-              <button
-                onClick={() => setDrumMute(type, !muted)}
-                aria-label={`${muted ? "Unmute" : "Mute"} ${label}`}
-                className={cn(
-                  "w-full py-0.5 rounded text-[8px] font-bold tracking-wider transition-all",
-                  muted ? "bg-red-500/25 text-red-400" : "bg-white/[0.04] text-white/30 hover:text-white/50",
-                )}
-              >
-                {muted ? "M" : label}
-              </button>
-              <div className="relative w-full">
-                <input
-                  type="range" min={0} max={1} step={0.01} value={muted ? 0 : vol}
-                  onChange={(e) => setDrumVolume(type, parseFloat(e.target.value))}
-                  aria-label={`${label} volume`}
-                  className="w-full h-[2px] rounded-full appearance-none"
-                  style={{
-                    background: `linear-gradient(to right, ${color}${muted ? "33" : "aa"} 0%, ${color}${muted ? "33" : "aa"} ${(muted ? 0 : vol) * 100}%, rgba(255,255,255,0.06) ${(muted ? 0 : vol) * 100}%, rgba(255,255,255,0.06) 100%)`,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
@@ -367,5 +189,58 @@ function PatternPill() {
     >
       {activePattern.name} <span className="text-white/15 ml-1">✦</span>
     </button>
+  );
+}
+
+function PanelToggle({ id, label }: { id: SidePanel; label: string }) {
+  const active = useDAWStore((s) => s.sidePanel);
+  const setSidePanel = useDAWStore((s) => s.setSidePanel);
+
+  return (
+    <button
+      aria-label={`${active === id ? "Close" : "Open"} ${label} panel`}
+      onClick={() => setSidePanel(active === id ? null : id)}
+      className={cn(
+        "px-3 py-1 rounded-xl text-[10px] font-medium tracking-wider transition-all duration-300",
+        active === id
+          ? "bg-white/12 text-white/80 border border-white/[0.1]"
+          : "bg-black/20 text-white/30 border border-white/[0.04] hover:text-white/50",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/* ── Mixer Panel ── */
+function MixerPanel() {
+  const drumVolumes = useDAWStore((s) => s.drumVolumes);
+  const drumMutes = useDAWStore((s) => s.drumMutes);
+
+  return (
+    <div className="w-[340px] px-4 py-3 rounded-2xl bg-black/50 backdrop-blur-2xl border border-white/[0.06] shadow-2xl shadow-black/60">
+      <span className="text-[10px] text-white/40 font-medium tracking-widest uppercase block mb-3">Mixer</span>
+      <div className="space-y-2">
+        {DRUM_CHANNELS.map(({ type, label, color }) => (
+          <div key={type} className="flex items-center gap-2">
+            <span className="text-[9px] font-mono w-12" style={{ color }}>{label}</span>
+            <input
+              type="range" min={0} max={1} step={0.01} value={drumVolumes[type]}
+              onChange={(e) => useDAWStore.getState().setDrumVolume(type, parseFloat(e.target.value))}
+              className="flex-1 h-[2px] appearance-none bg-white/[0.08]"
+            />
+            <button
+              onClick={() => useDAWStore.getState().setDrumMute(type, !drumMutes[type])}
+              className={cn(
+                "w-5 h-5 rounded text-[8px] font-bold",
+                drumMutes[type] ? "bg-red-500/30 text-red-400" : "bg-white/[0.04] text-white/20",
+              )}
+            >
+              M
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
