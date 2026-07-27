@@ -11,6 +11,14 @@ export interface VisualState {
   width: number; height: number; time: number;
   beat: number; bass: number; mid: number; treble: number; rms: number;
   mouseX: number; mouseY: number; mouseDown: boolean; hueShift: number;
+  /** How intensely the user is interacting right now (0-1) */
+  interactionIntensity: number;
+  /** Smoothed interaction X (0-1) */
+  interactionX: number;
+  /** Smoothed interaction Y (0-1) */
+  interactionY: number;
+  /** Whether user is holding */
+  interactionHolding: boolean;
 }
 
 /* ─── Shared particle system (used by nebula/network/kaleidoscope) ─── */
@@ -56,6 +64,9 @@ function updateParticles(state: VisualState, params: VisualParams): void {
       const f = state.mouseDown ? params.mouseForce * 6 : params.mouseForce;
       p.vx += (dx / d) * f; p.vy += (dy / d) * f;
     }
+    // Interaction amplifies particle speed
+    p.vx += p.vx * state.interactionIntensity * 0.3;
+    p.vy += p.vy * state.interactionIntensity * 0.3;
     p.vx += Math.sin(state.time * 4 + p.x * 0.008) * state.bass * 0.8;
     p.vy += Math.cos(state.time * 4 + p.y * 0.008) * state.bass * 0.8;
     p.vx *= params.friction; p.vy *= params.friction;
@@ -75,48 +86,53 @@ function updateParticles(state: VisualState, params: VisualParams): void {
 function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
   const W = state.width, H = state.height, cx = W / 2, cy = H / 2;
   const t = state.time * params.speed;
+  const rms = Math.max(state.rms, 0.15);
 
-  // Deep space gradient
+  // Deep space gradient — visible dark blue/purple
   const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
-  bg.addColorStop(0, `hsla(${state.hueShift + 240}, 25%, 6%, 1)`);
-  bg.addColorStop(0.5, `hsla(${state.hueShift + 260}, 20%, 3%, 1)`);
-  bg.addColorStop(1, `hsla(${state.hueShift + 280}, 15%, 1%, 1)`);
+  bg.addColorStop(0, `hsla(${state.hueShift + 240}, 30%, 8%, 1)`);
+  bg.addColorStop(0.5, `hsla(${state.hueShift + 260}, 25%, 4%, 1)`);
+  bg.addColorStop(1, `hsla(${state.hueShift + 280}, 20%, 2%, 1)`);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Orbital nebula clouds — NO particles, pure gradient blobs
+  // Orbital nebula clouds — bright radial gradient blobs
   const count = Math.floor(params.nebulaClouds);
   for (let i = 0; i < count; i++) {
     const angle = t * 0.08 + (i * Math.PI * 2) / count;
-    const dist = 120 + state.bass * 100 + i * 50;
-    const x = cx + Math.cos(angle) * dist;
-    const y = cy + Math.sin(angle) * dist;
-    const size = (100 + state.mid * 80 + i * 25) * params.intensity;
+    const pullX = (state.interactionX - 0.5) * state.interactionIntensity * 200;
+    const pullY = (state.interactionY - 0.5) * state.interactionIntensity * 200;
+    const dist = 120 + state.bass * 200 + i * 80;
+    const x = cx + Math.cos(angle) * dist + pullX;
+    const y = cy + Math.sin(angle) * dist + pullY;
+    const size = (150 + state.mid * 120 + i * 40) * params.intensity * (1 + state.interactionIntensity * 0.5);
 
+    const hue = (state.hueShift + i * 35) % 360;
     const g = ctx.createRadialGradient(x, y, 0, x, y, size);
-    g.addColorStop(0, `hsla(${(state.hueShift + i * 35) % 360}, 55%, ${15 + state.rms * 20}%, ${0.12 + state.rms * 0.08})`);
-    g.addColorStop(0.5, `hsla(${(state.hueShift + i * 35 + 15) % 360}, 40%, ${8 + state.rms * 10}%, ${0.04 + state.rms * 0.04})`);
+    g.addColorStop(0, `hsla(${hue}, 70%, ${25 + rms * 30}%, ${0.35 + rms * 0.2})`);
+    g.addColorStop(0.4, `hsla(${(hue + 15) % 360}, 55%, ${15 + rms * 20}%, ${0.15 + rms * 0.1})`);
     g.addColorStop(1, "transparent");
     ctx.fillStyle = g;
     ctx.fillRect(x - size, y - size, size * 2, size * 2);
   }
 
-  // Star field — tiny static dots
-  for (let i = 0; i < 60; i++) {
+  // Star field — brighter dots with glow
+  for (let i = 0; i < 80; i++) {
     const sx = ((i * 7919 + 1234) % W);
     const sy = ((i * 6271 + 5678) % H);
-    const flicker = 0.2 + Math.sin(t * 3 + i) * 0.15;
-    ctx.fillStyle = `hsla(${(state.hueShift + i * 17) % 360}, 30%, 80%, ${flicker})`;
-    ctx.fillRect(sx, sy, 1, 1);
+    const flicker = 0.4 + Math.sin(t * 3 + i) * 0.3;
+    const sz = 1 + Math.sin(t * 2 + i * 0.5) * 0.5;
+    ctx.fillStyle = `hsla(${(state.hueShift + i * 17) % 360}, 40%, 85%, ${flicker})`;
+    ctx.fillRect(sx, sy, sz, sz);
   }
 
-  // Noise grain
-  if (state.rms > 0.1 && params.nebulaNoise > 0) {
-    ctx.globalAlpha = state.rms * params.nebulaNoise;
+  // Noise grain — visible when audio plays
+  if (rms > 0.05 && params.nebulaNoise > 0) {
+    ctx.globalAlpha = rms * params.nebulaNoise * 2;
     const imgData = ctx.getImageData(0, 0, W, H);
     const d = imgData.data;
     for (let i = 0; i < d.length; i += 16) {
-      const n = (Math.random() - 0.5) * 30 * state.rms;
+      const n = (Math.random() - 0.5) * 40 * rms;
       d[i] = Math.max(0, Math.min(255, d[i]! + n));
       d[i + 1] = Math.max(0, Math.min(255, d[i + 1]! + n));
       d[i + 2] = Math.max(0, Math.min(255, d[i + 2]! + n));
@@ -142,7 +158,7 @@ function drawNetwork(ctx: CanvasRenderingContext2D, state: VisualState, params: 
   ctx.fillRect(0, 0, W, H);
   updateParticles(state, params);
 
-  const linkDist = params.networkLinkDist + state.rms * 40;
+  const linkDist = params.networkLinkDist + state.rms * 40 + state.interactionIntensity * 60;
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < Math.min(i + 30, particles.length); j++) {
       const a = particles[i]!, b = particles[j]!;
@@ -175,7 +191,7 @@ function drawNetwork(ctx: CanvasRenderingContext2D, state: VisualState, params: 
 function drawKaleidoscope(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
   const W = state.width, H = state.height;
   const cx = W / 2, cy = H / 2;
-  const seg = Math.floor(params.kaleidoSegments);
+  const seg = Math.floor(params.kaleidoSegments + state.interactionIntensity * 4);
   const step = (Math.PI * 2) / seg;
 
   ctx.fillStyle = `hsla(${state.hueShift + 220}, 12%, 3%, 0.05)`;
@@ -220,7 +236,7 @@ function drawOscilloscope(ctx: CanvasRenderingContext2D, state: VisualState, par
   const W = state.width, H = state.height;
   const cx = W / 2, cy = H / 2;
   const t = state.time * params.speed;
-  const radius = Math.min(W, H) * params.oscScale;
+  const radius = Math.min(W, H) * params.oscScale * (1 + state.interactionIntensity * 0.5);
 
   // Dark background with slight phosphor glow
   ctx.fillStyle = "rgba(0, 3, 0, 0.06)";
@@ -336,8 +352,9 @@ function drawTerrain(ctx: CanvasRenderingContext2D, state: VisualState, params: 
 
 function drawPlasma(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
   const W = state.width, H = state.height;
-  const t = state.time * params.speed * params.plasmaSpeed;
-  const scale = params.plasmaScale;
+  const interactSpeed = 1 + state.interactionIntensity * 2;
+  const t = state.time * params.speed * params.plasmaSpeed * interactSpeed;
+  const scale = params.plasmaScale * (1 + state.interactionIntensity * 0.5);
   const layers = Math.floor(params.plasmaLayers);
 
   // Use ImageData for pixel-level plasma
@@ -474,8 +491,16 @@ function drawFluid(ctx: CanvasRenderingContext2D, state: VisualState, params: Vi
     const v = fbm(nx + t, ny + t * 0.7, params);
     const angle = v * Math.PI * 4 + state.time * 0.5;
 
-    dot.vx = Math.cos(angle) * 2 * params.intensity;
-    dot.vy = Math.sin(angle) * 2 * params.intensity;
+    const interactBoost = 1 + state.interactionIntensity * 3;
+    dot.vx = Math.cos(angle) * 2 * params.intensity * interactBoost;
+    dot.vy = Math.sin(angle) * 2 * params.intensity * interactBoost;
+    // Pull toward cursor when holding
+    if (state.interactionHolding) {
+      const tdx = state.mouseX - dot.x, tdy = state.mouseY - dot.y;
+      const td = Math.sqrt(tdx * tdx + tdy * tdy) + 1;
+      dot.vx += (tdx / td) * state.interactionIntensity * 0.5;
+      dot.vy += (tdy / td) * state.interactionIntensity * 0.5;
+    }
     dot.x += dot.vx;
     dot.y += dot.vy;
 
@@ -524,9 +549,10 @@ function drawOrbs(ctx: CanvasRenderingContext2D, state: VisualState, params: Vis
   for (const orb of orbs) {
     const dx = cx - orb.x, dy = cy - orb.y;
     const dist = Math.sqrt(dx * dx + dy * dy) + 1;
-    orb.vx += (dx / dist) * params.orbGravity;
-    orb.vy += (dy / dist) * params.orbGravity;
-    orb.size = orb.baseSize * (1 + state.beat * 0.5 * params.intensity);
+    const interactGrav = params.orbGravity * (1 + state.interactionIntensity * 3);
+    orb.vx += (dx / dist) * interactGrav;
+    orb.vy += (dy / dist) * interactGrav;
+    orb.size = orb.baseSize * (1 + state.beat * 0.5 * params.intensity + state.interactionIntensity * 0.4);
     orb.hue = (orb.hue + state.rms * 2) % 360;
     orb.vx *= 0.995; orb.vy *= 0.995;
     orb.x += orb.vx; orb.y += orb.vy;
@@ -582,8 +608,12 @@ function drawVoronoi(ctx: CanvasRenderingContext2D, state: VisualState, params: 
 
   // Move points
   for (const pt of voronoiPts) {
-    pt.x += pt.vx + Math.sin(t + pt.y * 0.01) * state.bass * 2;
-    pt.y += pt.vy + Math.cos(t + pt.x * 0.01) * state.bass * 2;
+    // Interaction pushes voronoi points outward from cursor
+    const vdx = pt.x - state.mouseX, vdy = pt.y - state.mouseY;
+    const vd = Math.sqrt(vdx * vdx + vdy * vdy) + 1;
+    const vPush = state.interactionIntensity * 0.8 / vd;
+    pt.x += pt.vx + Math.sin(t + pt.y * 0.01) * state.bass * 2 + (vdx / vd) * vPush;
+    pt.y += pt.vy + Math.cos(t + pt.x * 0.01) * state.bass * 2 + (vdy / vd) * vPush;
     if (pt.x < 0) pt.x = W; if (pt.x > W) pt.x = 0;
     if (pt.y < 0) pt.y = H; if (pt.y > H) pt.y = 0;
     pt.hue = (pt.hue + state.rms) % 360;
@@ -649,7 +679,8 @@ function drawBranch(
   depth: number, maxDepth: number, params: VisualParams, state: VisualState,
 ): void {
   if (depth > maxDepth || length < 2) return;
-  const wind = Math.sin(state.time * 2 + depth * 0.5) * params.fractalWind * depth * 3;
+  const interactWind = params.fractalWind + state.interactionIntensity * 0.5 * (state.interactionX - 0.5);
+  const wind = Math.sin(state.time * 2 + depth * 0.5) * interactWind * depth * 3;
   const rad = ((angle + wind) * Math.PI) / 180;
   const x2 = x + Math.cos(rad) * length;
   const y2 = y + Math.sin(rad) * length;
@@ -662,7 +693,7 @@ function drawBranch(
   ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke();
 
   const next = length * 0.72;
-  const ba = params.fractalAngle * (0.8 + state.bass * 0.4);
+  const ba = params.fractalAngle * (0.8 + state.bass * 0.4 + state.interactionIntensity * 0.6);
   for (let b = 0; b < params.fractalBranches; b++) {
     const spread = (b - (params.fractalBranches - 1) / 2) * ba;
     drawBranch(ctx, x2, y2, angle + spread, next, depth + 1, maxDepth, params, state);
@@ -673,7 +704,7 @@ function drawFractal(ctx: CanvasRenderingContext2D, state: VisualState, params: 
   const W = state.width, H = state.height;
   ctx.fillStyle = `rgba(0, 0, 0, ${params.trailFade || 0.08})`;
   ctx.fillRect(0, 0, W, H);
-  const len = params.fractalLength * (1 + state.beat * 0.3 * params.intensity);
+  const len = params.fractalLength * (1 + state.beat * 0.3 * params.intensity + state.interactionIntensity * 0.4);
   drawBranch(ctx, W / 2, H * 0.85, -90, len, 0, Math.floor(params.fractalDepth), params, state);
 }
 
@@ -694,14 +725,22 @@ const RENDERERS: Record<VisualMode, (ctx: CanvasRenderingContext2D, state: Visua
   fractal: drawFractal,
 };
 
+/**
+ * Renders a single frame for the given visual mode to a 2D canvas context.
+ */
 export function renderFrame(
   ctx: CanvasRenderingContext2D, mode: VisualMode, state: VisualState, params: VisualParams,
 ): void {
+  // Guard: skip rendering if canvas has zero dimensions
+  if (state.width <= 0 || state.height <= 0) return;
   (RENDERERS[mode] ?? drawNebula)(ctx, state, params);
 }
 
 /* ─── Analyser helpers ─── */
 
+/**
+ * Extracts bass/mid/treble/RMS/beat data from an AnalyserNode.
+ */
 export function extractAudioData(analyser: AnalyserNode): { bass: number; mid: number; treble: number; rms: number; beat: number } {
   const freqData = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(freqData);
@@ -727,6 +766,9 @@ export function extractAudioData(analyser: AnalyserNode): { bass: number; mid: n
   return { bass, mid, treble, rms, beat };
 }
 
+/**
+ * Resets all visual engine state (particles, noise, etc.).
+ */
 export function resetVisuals(): void {
   particles = [];
   orbs = [];

@@ -30,7 +30,7 @@ export function Waveform() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  const { canvasRef } = ImmersiveCanvas({ params });
+  const { canvasRef } = ImmersiveCanvas({ params, visualMode, setVisualMode });
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-black">
