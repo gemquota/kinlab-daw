@@ -13,12 +13,13 @@ export function useAudioSync() {
   const lastStepTimeRef = useRef<number>(0);
   const currentStepRef = useRef<number>(0);
 
+  const tickRef = useRef<() => void>(() => {});
   const tick = useCallback(() => {
     const state = useDAWStore.getState();
     const { playing, bpm, masterVolume } = state;
 
     if (!playing) {
-      rafRef.current = requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(tickRef.current);
       return;
     }
 
@@ -61,8 +62,12 @@ export function useAudioSync() {
     // Sync master filter
     setMasterFilterFreq(state.filterCutoff);
 
-    rafRef.current = requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(tickRef.current);
   }, []);
+
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
 
   useEffect(() => {
     currentStepRef.current = 0;

@@ -41,7 +41,7 @@ export interface EffectsState {
   delayMix: number;
 }
 
-let currentEffects: EffectsState = {
+const currentEffects: EffectsState = {
   reverbAmount: 0.35,
   delayTime: 0.375,
   delayFeedback: 0.3,
@@ -344,7 +344,7 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
   const needsRecreate = voice.oscillators.length === 0 || voice.oscillators[0]!.type !== targetOscType;
 
   if (needsRecreate) {
-    voice.oscillators.forEach((o) => { try { o.stop(); } catch (_) { /* already stopped */ } });
+    voice.oscillators.forEach((o) => { try { o.stop(); } catch { /* already stopped */ } });
     voice.oscillators = [];
 
     const osc = ac.createOscillator();
@@ -363,7 +363,7 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
 export function destroyVoice(trackId: string): void {
   const voice = voices.get(trackId);
   if (!voice) return;
-  voice.oscillators.forEach((o) => { try { o.stop(); } catch (_) { /* already stopped */ } });
+  voice.oscillators.forEach((o) => { try { o.stop(); } catch { /* already stopped */ } });
   voice.gainNode.disconnect();
   voice.panNode.disconnect();
   voice.filterNode.disconnect();

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { DerivativeOrder } from "@/types";
 import {
   DERIVATIVE_COLORS,
   DERIVATIVE_COLOR_TOKENS,
@@ -29,7 +30,7 @@ describe("Colors Data", () => {
 
   it("getColorForOrder works for multiple orders", () => {
     for (let i = 0; i < 5; i++) {
-      const color = getColorForOrder(i as any);
+      const color = getColorForOrder(i as DerivativeOrder);
       expect(color).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });

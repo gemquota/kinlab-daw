@@ -1,14 +1,4 @@
 export { useThemeStore } from "./theme.store";
-export { useUIStore } from "./ui.store";
 export { useWaveformStore } from "./waveform.store";
 export { useDAWStore } from "./daw.store";
-export { useHistoryStore } from "./history.store";
-export { useSessionStore } from "./session.store";
-export { useSettingsStore } from "./settings.store";
-export { useSimulatorStore } from "./simulator.store";
-export { useTaylorStore } from "./taylor.store";
 export { useVisualStore } from "./visual.store";
-export { useVisualizationStore } from "./visualization.store";
-export { useEncyclopediaStore } from "./encyclopedia.store";
-export { useExportStore } from "./export.store";
-export { usePresetsStore } from "./presets.store";

@@ -132,7 +132,7 @@ export function WaveformCanvas({
         for (let i = 0; i < samples.length; i++) {
           const x = tToX(samples[i]!.t);
           const y = vToY(samples[i]!.components[ci] ?? 0);
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
       }
@@ -149,7 +149,7 @@ export function WaveformCanvas({
         for (let i = 0; i < samples.length; i++) {
           const x = tToX(samples[i]!.t);
           const y = vToY(samples[i]!.derivatives[d] ?? 0);
-          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
         ctx.stroke();
         ctx.setLineDash([]);
@@ -165,7 +165,7 @@ export function WaveformCanvas({
     for (let i = 0; i < samples.length; i++) {
       const x = tToX(samples[i]!.t);
       const y = vToY(samples[i]!.value);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
     ctx.shadowBlur = 0;

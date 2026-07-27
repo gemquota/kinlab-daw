@@ -82,8 +82,6 @@ function TreeNode({ node, depth, searchQuery, onFileSelect, selectedPath }: Tree
     });
   }, [searchQuery, node, isFolder, matchesSearch]);
 
-  if (!hasMatchingDescendant && searchQuery !== "") return null;
-
   const isSelected = selectedPath === node.path;
 
   const handleClick = useCallback(() => {
@@ -94,8 +92,10 @@ function TreeNode({ node, depth, searchQuery, onFileSelect, selectedPath }: Tree
     }
   }, [isFolder, node, onFileSelect]);
 
-  const Icon = isFolder ? (open ? FolderOpen : Folder) : fileIcon(node.ext);
+  const Icon = useMemo(() => isFolder ? (open ? FolderOpen : Folder) : fileIcon(node.ext), [isFolder, open, node.ext]);
   const colorClass = isFolder ? folderIconColor(depth) : "text-text-tertiary";
+
+  if (!hasMatchingDescendant && searchQuery !== "") return null;
 
   return (
     <div>
@@ -171,7 +171,6 @@ interface FlatRowProps {
 }
 
 function FlatRow({ node, onFileSelect, selectedPath }: FlatRowProps) {
-  const Icon = fileIcon(node.ext);
   const isSelected = selectedPath === node.path;
 
   return (
@@ -184,7 +183,7 @@ function FlatRow({ node, onFileSelect, selectedPath }: FlatRowProps) {
         !isSelected && "text-text-primary",
       )}
     >
-      <Icon className="w-4 h-4 shrink-0 text-text-tertiary" />
+      {fileIcon(node.ext)({ className: "w-4 h-4 shrink-0 text-text-tertiary" })}
       <span className="font-medium truncate flex-1 text-left">{node.name}</span>
       <span className="text-mono text-text-tertiary text-[11px] shrink-0">
         {extLabel(node.ext)}
@@ -202,10 +201,7 @@ function FileDetail({ node }: { node: FileNode }) {
   return (
     <div className="p-4 bg-surface-tertiary rounded-lg space-y-3">
       <div className="flex items-center gap-2">
-        {(() => {
-          const Icon = fileIcon(node.ext);
-          return <Icon className="w-5 h-5 text-derivative-position-500" />;
-        })()}
+        {fileIcon(node.ext)({ className: "w-5 h-5 text-derivative-position-500" })}
         <span className="font-semibold text-text-primary">{node.name}</span>
       </div>
       <div className="grid grid-cols-2 gap-2 text-caption">
