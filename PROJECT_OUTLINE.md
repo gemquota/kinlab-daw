@@ -1,4 +1,4 @@
-# KinLab — Complete Project Outline
+# VOID — Audiovisual Synthesizer LPSBS Plan
 
 ## Numbering: LPSBS (Leg.Phase.Stage.Batch.Step)
 
@@ -21,288 +21,219 @@ digit to its right has completed (reached its max value for that batch).
          │         │
          │    Leg increments, all right digits reset to 1
 
-Max steps per batch: 5 (except Batch 1 which has 6)
-Max batches per stage: 5
-Max stages per phase: 3
-Max phases per leg: 3
+---
+
+## Leg 1 — Foundation & Stability
+
+### Phase 1 — Code Quality & Build Health
+
+#### Stage 1 — TypeScript & Build
+
+##### Batch 1 — TS Error Resolution (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11111 | Audit all TS errors in src/ with tsc --noEmit  | [ ]    |
+| 11112 | Fix audio engine type errors                   | [ ]    |
+| 11113 | Fix store type errors (Zustand generics)       | [ ]    |
+| 11114 | Fix component prop type mismatches             | [ ]    |
+| 11115 | Verify clean tsc --noEmit with zero errors     | [ ]    |
+
+##### Batch 2 — Lint & Format (4 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11121 | Run eslint and catalog all warnings/errors     | [ ]    |
+| 11122 | Fix critical lint errors (hooks, imports)      | [ ]    |
+| 11123 | Fix warnings (unused vars, exhaustive deps)    | [ ]    |
+| 11124 | Run prettier on entire src/ tree               | [ ]    |
+
+##### Batch 3 — Build Pipeline (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11131 | Verify vite build produces clean output        | [ ]    |
+| 11132 | Verify GitHub Actions deploy workflow works     | [ ]    |
+| 11133 | Test production build loads in browser          | [ ]    |
+| 11134 | Verify dist/ output is under 500KB gzipped     | [ ]    |
+| 11135 | Add build size check to CI                     | [ ]    |
+
+#### Stage 2 — Testing
+
+##### Batch 4 — Test Repair (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11141 | Run vitest and catalog all failures            | [ ]    |
+| 11142 | Fix audio engine unit tests                    | [ ]    |
+| 11143 | Fix store unit tests (Zustand mock patterns)   | [ ]    |
+| 11144 | Fix component render tests (React 19 compat)   | [ ]    |
+| 11145 | Verify all tests pass: vitest run              | [ ]    |
+
+##### Batch 5 — Test Coverage (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11151 | Add visual engine unit tests (6 modes)         | [ ]    |
+| 11152 | Add gesture engine unit tests                  | [ ]    |
+| 11153 | Add interaction manager unit tests             | [ ]    |
+| 11154 | Add drumSynth edge case tests                  | [ ]    |
+| 11155 | Achieve >80% line coverage on src/audio/       | [ ]    |
+
+### Phase 2 — Architecture Cleanup
+
+#### Stage 1 — State Management
+
+##### Batch 6 — Store Audit (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11211 | Audit all 14 Zustand stores for redundancy     | [ ]    |
+| 11212 | Merge visual.store.ts and visualization.store.ts | [ ]  |
+| 11213 | Merge session.store.ts into daw.store.ts       | [ ]    |
+| 11214 | Remove unused stores (export, encyclopedia)    | [ ]    |
+| 11215 | Verify persist middleware works after merges    | [ ]    |
+
+##### Batch 7 — Store Selectors (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11221 | Audit all useDAWStore() calls for selector leaks | [ ]  |
+| 11222 | Fix selector leaks in Waveform.tsx             | [ ]    |
+| 11223 | Fix selector leaks in FloatingControls.tsx     | [ ]    |
+| 11224 | Fix selector leaks in TransportBar.tsx         | [ ]    |
+| 11225 | Add selector perf test (re-render count)       | [ ]    |
+
+#### Stage 2 — Component Architecture
+
+##### Batch 8 — Component Audit (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11231 | Audit component tree for prop drilling         | [ ]    |
+| 11232 | Extract shared hooks from duplicated logic     | [ ]    |
+| 11233 | Consolidate duplicate CSS classes              | [ ]    |
+| 11234 | Remove dead/unused components                  | [ ]    |
+| 11235 | Verify no circular dependencies in imports     | [ ]    |
+
+##### Batch 9 — Error Handling (5 steps)
+
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 11241 | Add ErrorBoundary to audio engine init         | [ ]    |
+| 11242 | Add ErrorBoundary to visual canvas             | [ ]    |
+| 11243 | Add try/catch to Web Audio API calls           | [ ]    |
+| 11244 | Add user-facing error toasts for failures      | [ ]    |
+| 11245 | Test error recovery (disconnect/reconnect)     | [ ]    |
 
 ---
 
-## Leg 1 — Kinematics Visualization Platform
+## Leg 2 — Features & Polish
 
-### Phase 1 — Core Foundation
+### Phase 1 — Audio Enhancements
 
-#### Stage 1 — Architecture & Infrastructure
+#### Stage 1 — Sound Engine
 
-##### Batch 1 — Foundation (6 steps)
+##### Batch 10 — Synth Expansion (5 steps)
 
-| Code  | Title                                  | Status |
-|-------|----------------------------------------|--------|
-| 11111 | Project Architecture & Dependencies     | ✅      |
-| 11112 | Application Shell                       | ✅      |
-| 11113 | Design System & Core Component Library  | ✅      |
-| 11114 | Core Scientific Domain Model            | ✅      |
-| 11115 | Mathematical Engine Architecture        | ✅      |
-| 11116 | Global State Architecture & Data Flow   | ✅      |
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12111 | Add synth voice (saw/square/sine oscillator)   | [ ]    |
+| 12112 | Add ADSR envelope to synth voice               | [ ]    |
+| 12113 | Add filter cutoff/Q per-voice                  | [ ]    |
+| 12114 | Add pitch bend / glide control                 | [ ]    |
+| 12115 | Wire synth to instrument grid pads             | [ ]    |
 
-##### Batch 2 — Runtime & Infrastructure (4 steps)
+##### Batch 11 — Effects Enhancement (5 steps)
 
-| Code  | Title                                    | Status |
-|-------|------------------------------------------|--------|
-| 11121 | Application Bootstrap & Runtime           | ✅      |
-| 11122 | Theme Engine & Design Token Runtime       | ✅      |
-| 11123 | Navigation, Workspace & Command System    | ✅      |
-| 11124 | Reactive Scientific Computation Pipeline  | ✅      |
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12121 | Add compressor threshold/ratio/attack/release  | [ ]    |
+| 12122 | Add EQ (3-band) to master chain                | [ ]    |
+| 12123 | Add phaser/chorus effect module                | [ ]    |
+| 12124 | Add per-drum filter (not just master)          | [ ]    |
+| 12125 | Add sidechain compression (kick → bass)        | [ ]    |
 
-##### Batch 3 — Taylor Laboratory Core (5 steps)
+#### Stage 2 — Sequencer
 
-| Code  | Title                                |
-|-------|--------------------------------------|
-| 11131 | Interactive Coefficient Editor       |
-| 11132 | Adaptive Slider Components           |
-| 11133 | Symbolic Equation Rendering (KaTeX)  |
-| 11134 | Taylor Expression Panel              |
-| 11135 | Real-time Polynomial Preview         |
+##### Batch 12 — Step Sequencer (5 steps)
 
-##### Batch 4 — Visualization Suite (5 steps)
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12131 | Fix step sequencer UI rendering bugs           | [ ]    |
+| 12132 | Add velocity editing per step                  | [ ]    |
+| 12133 | Add swing/shuffle control                      | [ ]    |
+| 12134 | Add pattern chain (loop multiple patterns)     | [ ]    |
+| 12135 | Add randomize pattern button                   | [ ]    |
 
-| Code  | Title                                  |
-|-------|----------------------------------------|
-| 11141 | Chart Infrastructure (Recharts)        |
-| 11142 | Multi-derivative Curve Rendering       |
-| 11143 | Phase Space Plot                       |
-| 11144 | Contribution Stacked Charts            |
-| 11145 | Interactive Crosshair & Tooltip        |
+##### Batch 13 — Pattern System (5 steps)
 
----
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12141 | Add user pattern save/load (localStorage)      | [ ]    |
+| 12142 | Add pattern import/export (JSON)               | [ ]    |
+| 12143 | Add 5 more built-in patterns (DnB, Ambient)   | [ ]    |
+| 12144 | Add pattern morphing (interpolate two patterns)| [ ]    |
+| 12145 | Add pattern name editing                       | [ ]    |
 
-#### Stage 2 — Feature Implementation
+### Phase 2 — Visual & UX Polish
 
-##### Batch 5 — Motion Simulator Core (5 steps)
+#### Stage 1 — Visual Engine
 
-| Code  | Title                       |
-|-------|-----------------------------|
-| 11211 | HTML5 Canvas Renderer       |
-| 11212 | Particle Animation System   |
-| 11213 | Vector Arrow Visualization  |
-| 11214 | Motion Trail Renderer       |
-| 11215 | Playback Transport Controls |
+##### Batch 14 — Visual Performance (5 steps)
 
-##### Batch 6 — Kinematics Encyclopedia (5 steps)
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12211 | Profile visual engine frame times              | [ ]    |
+| 12112 | Optimize particle system (Object池 pooling)    | [ ]    |
+| 12213 | Add low-power mode (reduce particle count)     | [ ]    |
+| 12214 | Add FPS counter to UI                          | [ ]    |
+| 12215 | Verify 60fps on mobile devices                 | [ ]    |
 
-| Code  | Title                                |
-|-------|--------------------------------------|
-| 11221 | Article Template System              |
-| 11222 | KaTeX Mathematical Rendering         |
-| 11223 | Interactive Derivative Examples      |
-| 11224 | Search & Cross-reference Navigation  |
-| 11225 | Related Concepts & Prerequisites     |
+##### Batch 15 — Visual Modes (5 steps)
 
-##### Batch 7 — Preset System (5 steps)
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12221 | Add 7th mode: "Waveform" (oscilloscope style)  | [ ]    |
+| 12222 | Add 8th mode: "Matrix" (rain/grid)             | [ ]    |
+| 12223 | Add mode transition animations (crossfade)     | [ ]    |
+| 12224 | Add preset visual configs per pattern          | [ ]    |
+| 12225 | Add randomize visual params button             | [ ]    |
 
-| Code  | Title                      |
-|-------|----------------------------|
-| 11231 | Preset Schema & Validation |
-| 11232 | Built-in Preset Collection |
-| 11233 | User Preset CRUD           |
-| 11234 | Import/Export (JSON, URL)  |
-| 11235 | Preset Browser UI          |
+#### Stage 2 — UI/UX
 
----
+##### Batch 16 — Accessibility (5 steps)
 
-#### Stage 3 — Integration & Polish
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12231 | Add ARIA labels to all interactive elements    | [ ]    |
+| 12232 | Add keyboard navigation for mixer controls     | [ ]    |
+| 12233 | Add screen reader announcements for state      | [ ]    |
+| 12234 | Add high-contrast mode toggle                  | [ ]    |
+| 12235 | Test with screen reader (NVDA/VoiceOver)       | [ ]    |
 
-##### Batch 8 — Export Engine (5 steps)
+##### Batch 17 — Mobile & Responsive (5 steps)
 
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11311 | PNG Export (html2canvas)       |
-| 11312 | SVG Export                     |
-| 11313 | CSV Data Export                |
-| 11314 | JSON State Export              |
-| 11315 | URL State Serialization        |
-
-##### Batch 9 — Comparison & Multi-view (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11321 | Dual-coefficient Comparison    |
-| 11322 | Side-by-side Panel Layout      |
-| 11323 | Differential Analysis Overlay  |
-| 11324 | Statistical Summary Comparison |
-| 11325 | Split-pane Resize & Docking    |
+| Code  | Title                                          | Status |
+|-------|------------------------------------------------|--------|
+| 12241 | Audit layout at 375px, 768px, 1024px widths    | [ ]    |
+| 12242 | Fix overflow/scroll issues on small screens    | [ ]    |
+| 12243 | Optimize touch targets (min 44px)              | [ ]    |
+| 12244 | Add haptic feedback on pad triggers (mobile)   | [ ]    |
+| 12245 | Test full flow on iOS Safari + Android Chrome  | [ ]    |
 
 ---
 
-### Phase 2 — Advanced Visualization
+## Summary
 
-#### Stage 4 — Advanced Charts
-
-##### Batch 10 — Specialized Visualizations (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11411 | Polar/Radial Plots             |
-| 11412 | Derivative Waterfall Chart     |
-| 11413 | Taylor Convergence Animation   |
-| 11414 | Error Bound Visualization      |
-| 11415 | Multi-scale Logarithmic Views  |
-
-##### Batch 11 — 3D & Interactive (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11421 | 3D Phase Space (Three.js/r3f)  |
-| 11422 | Interactive Rotation & Camera  |
-| 11423 | 3D Particle System             |
-| 11424 | Depth-based Coloring           |
-| 11425 | Screenshot & Video Capture     |
-
----
-
-### Phase 3 — Advanced Features
-
-#### Stage 5 — Extended Mathematics
-
-##### Batch 12 — Symbolic Mathematics (5 steps)
-
-| Code  | Title                                  |
-|-------|----------------------------------------|
-| 11511 | Symbolic Differentiation Engine        |
-| 11512 | LaTeX Expression Builder               |
-| 11513 | Step-by-step Derivation Display        |
-| 11514 | Chain Rule & Product Rule Visualization|
-| 11515 | Integration Path Display               |
-
-##### Batch 13 — Multi-dimensional (5 steps)
-
-| Code  | Title                              |
-|-------|------------------------------------|
-| 11521 | 2D Parametric Curves               |
-| 11522 | 3D Parametric Surfaces             |
-| 11523 | Angular Kinematics (θ, ω, α)       |
-| 11524 | Multi-axis Decomposition           |
-| 11525 | Coordinate System Transformations  |
-
----
-
-### Phase 4 — Production & Distribution
-
-#### Stage 6 — Performance & Quality
-
-##### Batch 14 — Performance Optimization (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11611 | Web Worker Offloading          |
-| 11612 | WebAssembly Math Kernels       |
-| 11613 | Virtualized List Rendering     |
-| 11614 | Canvas Optimization (rAF)      |
-| 11615 | Bundle Splitting Audit         |
-
-##### Batch 15 — Testing & QA (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11621 | Unit Test Coverage (90%+)      |
-| 11622 | Integration Tests              |
-| 11623 | Visual Regression Tests        |
-| 11624 | Accessibility Audit (WCAG AA)  |
-| 11625 | Cross-browser Compatibility    |
-
-##### Batch 16 — Documentation & Deployment (5 steps)
-
-| Code  | Title                          |
-|-------|--------------------------------|
-| 11631 | Component Storybook            |
-| 11632 | API Documentation              |
-| 11633 | User Guide                     |
-| 11634 | Deployment Pipeline            |
-| 11635 | Analytics & Error Monitoring   |
-
----
-
-## Leg 2 — Educational Platform Extension
-
-### Phase 5 — Learning Features
-
-#### Stage 7 — Interactive Learning
-
-##### Batch 17 — Tutorial System (5 steps)
-
-| Code  | Title                      |
-|-------|----------------------------|
-| 21111 | Guided Tour Framework      |
-| 21112 | Step-by-step Tutorials     |
-| 21113 | Interactive Challenges     |
-| 21114 | Progress Tracking          |
-| 21115 | Achievement System         |
-
-##### Batch 18 — Assessment (5 steps)
-
-| Code  | Title                            |
-|-------|----------------------------------|
-| 21121 | Quiz Engine                      |
-| 21122 | Drag-and-drop Derivation         |
-| 21123 | Coefficient Estimation Challenge |
-| 21124 | Visualization Builder Assessment |
-| 21125 | Score & Feedback System          |
-
----
-
-### Phase 6 — Collaboration
-
-#### Stage 8 — Sharing & Collaboration
-
-##### Batch 19 — Sharing (5 steps)
-
-| Code  | Title                      |
-|-------|----------------------------|
-| 21211 | Shareable URL State        |
-| 21212 | Embed Widget               |
-| 21213 | Screenshot Sharing         |
-| 21214 | Presentation Mode          |
-| 21215 | Notebook Format Export     |
-
-##### Batch 20 — Collaboration (Future) (5 steps)
-
-| Code  | Title                      |
-|-------|----------------------------|
-| 21221 | Real-time Multiplayer State|
-| 21222 | Cursor Presence            |
-| 21223 | Comment System             |
-| 21224 | Version History            |
-| 21225 | Role-based Access          |
-
----
-
-## Leg 3 — Research & Engineering Tools
-
-### Phase 7 — Engineering Mode
-
-#### Stage 9 — Professional Tools
-
-##### Batch 21 — Engineering Applications (5 steps)
-
-| Code  | Title                      |
-|-------|----------------------------|
-| 31111 | Unit Conversion Engine     |
-| 31112 | Tolerance & Error Analysis |
-| 31113 | Signal Processing View     |
-| 31114 | Control Systems Integration|
-| 31115 | Data Import from Sensors   |
-
-##### Batch 22 — API & Integration (5 steps)
-
-| Code  | Title                      |
-|-------|----------------------------|
-| 31121 | REST API for Computation   |
-| 31122 | WebSocket Live Updates     |
-| 31123 | Python/Julia Interop       |
-| 31124 | MATLAB Export              |
-| 31125 | Plugin System              |
-
----
-
-*22 Batches × ~5 Steps ≈ 110 Steps*
-*Estimated Timeline: 6–12 months*
+| Leg | Phase | Stage | Batch | Steps | Total |
+|-----|-------|-------|-------|-------|-------|
+| 1   | 1     | 1     | 1-3   | 14    | 14    |
+| 1   | 1     | 2     | 4-5   | 10    | 10    |
+| 1   | 2     | 1     | 6-7   | 10    | 10    |
+| 1   | 2     | 2     | 8-9   | 10    | 10    |
+| 2   | 1     | 1     | 10-11 | 10    | 10    |
+| 2   | 1     | 2     | 12-13 | 10    | 10    |
+| 2   | 2     | 1     | 14-15 | 10    | 10    |
+| 2   | 2     | 2     | 16-17 | 10    | 10    |
+|     |       |       |       | **Total** | **84** |
