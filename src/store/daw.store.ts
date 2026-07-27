@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { FILTHY_TECHNO, MINIMAL_TECHNO, INDUSTRIAL, ACID, RUMBLE, type PatternDef } from "@/audio/technoSequencer";
 import type { DrumType } from "@/audio/drumSynth";
 
-export type SidePanel = null | "mixer" | "effects" | "instruments";
+export type SidePanel = null | "mixer" | "effects" | "visuals" | "instruments";
 
 /**
  * DAW global state store with Zustand persist middleware.

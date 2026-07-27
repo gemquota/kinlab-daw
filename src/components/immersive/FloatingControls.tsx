@@ -1,9 +1,9 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useDAWStore, type SidePanel } from "@/store/daw.store";
-
+import { useVisualStore } from "@/store/visual.store";
 import { resumeAudio } from "@/audio/audioEngine";
 import { cn } from "@/lib/cn";
-import { type VisualMode, VISUAL_MODES } from "@/visual/visualParams";
+import { type VisualMode, type ParamDef, VISUAL_MODES, getModeInfo } from "@/visual/visualParams";
 import type { DrumType } from "@/audio/drumSynth";
 import { InstrumentGrid } from "./InstrumentGrid";
 
@@ -30,6 +30,7 @@ export function FloatingControls({ visualMode, onModeChange }: FloatingControlsP
       {/* Side panel content — above transport */}
       {sidePanel === "mixer" && <MixerPanel />}
       {sidePanel === "effects" && <EffectsPanel />}
+      {sidePanel === "visuals" && <VisualParamsPanel visualMode={visualMode} />}
       {sidePanel === "instruments" && <InstrumentGrid />}
 
       <TransportPill />
@@ -38,7 +39,8 @@ export function FloatingControls({ visualMode, onModeChange }: FloatingControlsP
         <PatternPill />
         <VisualModeTabs mode={visualMode} onChange={onModeChange} />
         <PanelToggle id="effects" label="FX" />
-        <PanelToggle id="instruments" label="INSTR" />
+        <PanelToggle id="visuals" label="VIS" />
+        <PanelToggle id="instruments" label="PADS" />
       </div>
     </div>
   );
@@ -66,6 +68,108 @@ function VisualModeTabs({ mode, onChange }: { mode: VisualMode; onChange: (m: Vi
         </button>
       ))}
     </div>
+  );
+}
+
+/* ── Visual Params Panel (shown when "VIS" toggle is active) ── */
+function VisualParamsPanel({ visualMode }: { visualMode: VisualMode }) {
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const modeInfo = getModeInfo(visualMode);
+
+  const toggleGroup = useCallback((label: string) => {
+    setOpenGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  }, []);
+
+  return (
+    <div className="w-[380px] px-4 py-3 rounded-2xl bg-black/50 backdrop-blur-2xl border border-white/[0.06] shadow-2xl shadow-black/60">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">{modeInfo.icon}</span>
+          <span className="text-[10px] text-white/40 font-medium tracking-widest uppercase">{modeInfo.name}</span>
+        </div>
+        <ResetButton />
+      </div>
+      <div className="max-h-[35vh] overflow-y-auto space-y-1">
+        {modeInfo.paramGroups.map((group) => (
+          <ParamGroup
+            key={group.label}
+            group={group}
+            isOpen={openGroups[group.label] !== false}
+            onToggle={() => toggleGroup(group.label)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ParamGroup({
+  group, isOpen, onToggle,
+}: {
+  group: { label: string; params: ParamDef[] };
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="rounded-xl bg-white/[0.02] border border-white/[0.04] overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-1.5 text-[9px] font-medium text-white/40 hover:text-white/60 transition-colors"
+      >
+        <span className="tracking-wider uppercase">{group.label}</span>
+        <span className="text-white/20 text-[8px]">{isOpen ? "▼" : "▶"}</span>
+      </button>
+      {isOpen && (
+        <div className="px-3 pb-2 space-y-2">
+          {group.params.map((param) => (
+            <ParamSlider key={param.key} param={param} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ParamSlider({ param }: { param: ParamDef }) {
+  const value = useVisualStore((s) => s.params[param.key] as number);
+  const setParam = useVisualStore((s) => s.setParam);
+
+  const displayValue = param.format
+    ? param.format(value)
+    : param.step >= 1
+      ? value.toFixed(0)
+      : value.toFixed(2);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[9px] text-white/30 font-medium tracking-wider">{param.label}</span>
+        <span className="text-[9px] text-white/50 font-mono">{displayValue}</span>
+      </div>
+      <input
+        type="range"
+        min={param.min}
+        max={param.max}
+        step={param.step}
+        value={value}
+        aria-label={param.label}
+        onChange={(e) => setParam(param.key, parseFloat(e.target.value) as never)}
+        className="w-full h-[2px] rounded-full appearance-none bg-white/[0.08]"
+      />
+    </div>
+  );
+}
+
+function ResetButton() {
+  const resetParams = useVisualStore((s) => s.resetParams);
+
+  return (
+    <button
+      onClick={resetParams}
+      className="text-[9px] text-white/25 hover:text-white/50 transition-colors"
+    >
+      Reset
+    </button>
   );
 }
 
