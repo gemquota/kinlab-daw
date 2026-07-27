@@ -15,6 +15,9 @@ let delayMix: GainNode | null = null;
 let dryGain: GainNode | null = null;
 let preGain: GainNode | null = null;
 let masterFilter: BiquadFilterNode | null = null;
+let distortionNode: WaveShaperNode | null = null;
+let distortionGain: GainNode | null = null;
+let filterType: BiquadFilterType = "lowpass";
 
 // Per-drum gain nodes — persistent, controlled by store
 const drumGainNodes: Map<string, GainNode> = new Map();
@@ -128,7 +131,15 @@ export function getAudioContext(): AudioContext {
     //                      → delayNode → delayFeedback ↩
     //                      → delayNode → delayMix ─────→ masterFilter
 
+    ensureDistortion();
+
     preGain.connect(compressor);
+
+    if (distortionNode && distortionGain) {
+      preGain.connect(distortionNode);
+      distortionNode.connect(distortionGain);
+      distortionGain.connect(compressor);
+    }
 
     compressor.connect(dryGain);
     compressor.connect(reverbNode);
@@ -230,6 +241,53 @@ export function setMasterFilterQ(q: number): void {
   if (masterFilter) {
     masterFilter.Q.setTargetAtTime(q, getAudioContext().currentTime, 0.02);
   }
+}
+
+export function setMasterFilterType(type: BiquadFilterType): void {
+  if (masterFilter && filterType !== type) {
+    filterType = type;
+    masterFilter.type = type;
+  }
+}
+
+export function getMasterFilterType(): BiquadFilterType {
+  return filterType;
+}
+
+function ensureDistortion(): void {
+  if (distortionNode) return;
+  const ac = getAudioContext();
+
+  distortionNode = ac.createWaveShaper();
+  distortionNode.oversample = "4x";
+  const curve = new Float32Array(44100);
+  for (let i = 0; i < 44100; i++) {
+    const x = (i * 2) / 44100 - 1;
+    curve[i] = Math.tanh(x * 1.5);
+  }
+  distortionNode.curve = curve;
+
+  distortionGain = ac.createGain();
+  distortionGain.gain.value = 0;
+}
+
+export function setDistortion(amount: number): void {
+  ensureDistortion();
+  if (distortionGain) {
+    distortionGain!.gain.setTargetAtTime(
+      Math.max(0, Math.min(1, amount)),
+      getAudioContext().currentTime,
+      0.02,
+    );
+  }
+}
+
+export function setDistortionEnabled(enabled: boolean): void {
+  setDistortion(enabled ? 0.6 : 0);
+}
+
+export function getDistortionAmount(): number {
+  return distortionGain?.gain.value ?? 0;
 }
 
 /* ── Track voices (legacy, for potential future use) ── */

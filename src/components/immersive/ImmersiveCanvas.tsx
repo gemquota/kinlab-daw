@@ -6,7 +6,18 @@ import {
   type VisualState,
 } from "@/visual/visualEngine";
 import { getMasterAnalyser } from "@/audio/audioEngine";
-import { updateInteraction, applyInteractionToAudio, getInteractionState } from "@/audio/interactionManager";
+import {
+  initGestureAudio,
+  getInteractionState,
+} from "@/audio/interactionManager";
+import {
+  handleTouchStart,
+  handleTouchMove,
+  handleTouchEnd,
+  handleMouseDown,
+  handleMouseMove,
+  handleMouseUp,
+} from "@/audio/gestureEngine";
 import { type VisualMode, type VisualParams } from "@/visual/visualParams";
 
 export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; visualMode: VisualMode }) {
@@ -54,7 +65,6 @@ export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; 
         state.beat = state.beat * 0.7 + audio.beat * 0.3;
       }
 
-      // Idle animation when no audio
       const t = state.time;
       if (state.rms < 0.01) {
         state.bass = 0.1 + Math.sin(t * 0.8) * 0.08;
@@ -70,8 +80,6 @@ export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; 
       state.interactionY = iState.normY;
       state.interactionHolding = iState.holding;
 
-      applyInteractionToAudio();
-
       state.hueShift = (state.hueShift + 0.1 + state.rms * 0.5) % 360;
 
       renderFrame(ctx, visualMode, state, paramsRef.current);
@@ -83,6 +91,10 @@ export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; 
   }, [visualMode]);
 
   useEffect(() => {
+    initGestureAudio();
+  }, []);
+
+  useEffect(() => {
     stateRef.current.time = 0;
     resetVisuals();
     rafRef.current = requestAnimationFrame(draw);
@@ -92,44 +104,53 @@ export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    function onMove(e: MouseEvent | Touch) {
-      const rect = canvas!.getBoundingClientRect();
-      stateRef.current.mouseX = e.clientX - rect.left;
-      stateRef.current.mouseY = e.clientY - rect.top;
-      updateInteraction(
-        e.clientX - rect.left,
-        e.clientY - rect.top,
-        rect.width,
-        rect.height,
-        stateRef.current.mouseDown,
-      );
+
+    function onTouchStartHandler(e: TouchEvent) {
+      e.preventDefault();
+      handleTouchStart(e);
     }
-    function onTouchMove(e: TouchEvent) { e.preventDefault(); onMove(e.touches[0]!); }
-    function onDown() {
+    function onTouchMoveHandler(e: TouchEvent) {
+      e.preventDefault();
+      handleTouchMove(e);
+    }
+    function onTouchEndHandler(e: TouchEvent) {
+      handleTouchEnd(e);
+    }
+
+    function onMouseDownHandler(e: MouseEvent) {
       stateRef.current.mouseDown = true;
-      const rect = canvas!.getBoundingClientRect();
-      updateInteraction(stateRef.current.mouseX, stateRef.current.mouseY, rect.width, rect.height, true);
+      stateRef.current.mouseX = e.clientX;
+      stateRef.current.mouseY = e.clientY;
+      handleMouseDown(e.clientX, e.clientY);
     }
-    function onUp() {
+    function onMouseMoveHandler(e: MouseEvent) {
+      stateRef.current.mouseX = e.clientX;
+      stateRef.current.mouseY = e.clientY;
+      if (stateRef.current.mouseDown) {
+        handleMouseMove(e.clientX, e.clientY);
+      }
+    }
+    function onMouseUpHandler(e: MouseEvent) {
       stateRef.current.mouseDown = false;
-      const rect = canvas!.getBoundingClientRect();
-      updateInteraction(stateRef.current.mouseX, stateRef.current.mouseY, rect.width, rect.height, false);
+      handleMouseUp(e.clientX, e.clientY);
     }
-    canvas.addEventListener("mousemove", onMove);
-    canvas.addEventListener("mousedown", onDown);
-    canvas.addEventListener("mouseup", onUp);
-    canvas.addEventListener("mouseleave", onUp);
-    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
-    canvas.addEventListener("touchstart", onDown);
-    canvas.addEventListener("touchend", onUp);
+
+    canvas.addEventListener("touchstart", onTouchStartHandler, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMoveHandler, { passive: false });
+    canvas.addEventListener("touchend", onTouchEndHandler);
+    canvas.addEventListener("mousedown", onMouseDownHandler);
+    canvas.addEventListener("mousemove", onMouseMoveHandler);
+    canvas.addEventListener("mouseup", onMouseUpHandler);
+    canvas.addEventListener("mouseleave", onMouseUpHandler);
+
     return () => {
-      canvas.removeEventListener("mousemove", onMove);
-      canvas.removeEventListener("mousedown", onDown);
-      canvas.removeEventListener("mouseup", onUp);
-      canvas.removeEventListener("mouseleave", onUp);
-      canvas.removeEventListener("touchmove", onTouchMove);
-      canvas.removeEventListener("touchstart", onDown);
-      canvas.removeEventListener("touchend", onUp);
+      canvas.removeEventListener("touchstart", onTouchStartHandler);
+      canvas.removeEventListener("touchmove", onTouchMoveHandler);
+      canvas.removeEventListener("touchend", onTouchEndHandler);
+      canvas.removeEventListener("mousedown", onMouseDownHandler);
+      canvas.removeEventListener("mousemove", onMouseMoveHandler);
+      canvas.removeEventListener("mouseup", onMouseUpHandler);
+      canvas.removeEventListener("mouseleave", onMouseUpHandler);
     };
   }, []);
 
