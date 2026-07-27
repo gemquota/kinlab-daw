@@ -28,7 +28,7 @@ describe("Transformers", () => {
 
   describe("samplePointsToCSV", () => {
     it("generates CSV with headers", () => {
-      const points = [{ t: 0, values: [1, 2] }, { t: 1, values: [3, 4] }];
+      const points = [{ t: 0, values: [1, 2], contributions: [[1], [1]] }, { t: 1, values: [3, 4], contributions: [[1], [1]] }];
       const csv = samplePointsToCSV(points, 2);
       expect(csv).toContain("t,d0,d1");
       expect(csv).toContain("0,1,2");

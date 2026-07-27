@@ -72,7 +72,7 @@ describe("WaveformControls", () => {
   it("calls togglePlayback when play clicked", () => {
     render(<WaveformControls />);
     const playBtn = screen.getAllByLabelText("Play/pause")[0];
-    fireEvent.click(playBtn);
+    if (playBtn) fireEvent.click(playBtn);
     expect(mockTogglePlayback).toHaveBeenCalled();
   });
 

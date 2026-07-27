@@ -15,7 +15,7 @@ describe("History Store", () => {
   it("pushAction adds to undoStack", () => {
     useHistoryStore.getState().pushAction("test", "desc", { val: 1 });
     expect(useHistoryStore.getState().undoStack).toHaveLength(1);
-    expect(useHistoryStore.getState().undoStack[0].action).toBe("test");
+    expect(useHistoryStore.getState().undoStack[0]!.action).toBe("test");
   });
 
   it("pushAction clears redoStack", () => {

@@ -15,29 +15,29 @@ describe("Presets Store", () => {
   it("addPreset adds entry with generated id", () => {
     usePresetsStore.getState().addPreset({
       name: "Test Preset",
-      data: { bpm: 135 },
       coefficients: [],
       t0: 0,
       maxOrder: 3,
       category: "Test",
       description: "A test",
+      isBuiltIn: false,
     });
     const presets = usePresetsStore.getState().presets;
     expect(presets).toHaveLength(1);
-    expect(presets[0].id).toMatch(/^user-/);
+    expect(presets[0]!.id).toMatch(/^user-/);
   });
 
   it("deletePreset removes non-built-in entry", () => {
     usePresetsStore.getState().addPreset({
       name: "To Delete",
-      data: {},
       coefficients: [],
       t0: 0,
       maxOrder: 3,
       category: "Test",
       description: "",
+      isBuiltIn: false,
     });
-    const id = usePresetsStore.getState().presets[0].id;
+    const id = usePresetsStore.getState().presets[0]!.id;
     usePresetsStore.getState().deletePreset(id);
     expect(usePresetsStore.getState().presets).toHaveLength(0);
   });

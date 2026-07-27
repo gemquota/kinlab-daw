@@ -219,7 +219,7 @@ export function generateChaosAttractor(params: GenerationParams, attractor: "lor
     rossler: { a: 0.2, b: 0.2, c: 5.7, dt: 0.01 },
     halvorsen: { a: 1.89, dt: 0.005 },
   };
-  const cfg = configs[attractor as keyof typeof configs];
+  const cfg = configs[attractor as keyof typeof configs] as any;
 
   let x = rng() * 2 - 1;
   let y = rng() * 2 - 1;
