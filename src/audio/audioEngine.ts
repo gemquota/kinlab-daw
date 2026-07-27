@@ -76,6 +76,10 @@ function createReverbImpulse(ac: AudioContext, duration = 2.5, decay = 2.5): Aud
 
 /* ─── Context setup ─── */
 
+/**
+ * Returns or creates the singleton AudioContext.
+ * Lazily initializes the entire audio graph on first call.
+ */
 export function getAudioContext(): AudioContext {
   if (!ctx) {
     ctx = new AudioContext();
@@ -146,12 +150,19 @@ export function getAudioContext(): AudioContext {
   return ctx;
 }
 
+/**
+ * Resumes the AudioContext after user gesture.
+ * Required by browser autoplay policy.
+ */
 export function resumeAudio(): Promise<void> {
   const ac = getAudioContext();
   if (ac.state === "suspended") return ac.resume();
   return Promise.resolve();
 }
 
+/**
+ * Sets the master output gain (0–1).
+ */
 export function setMasterVolume(v: number): void {
   masterGain?.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), getAudioContext().currentTime, 0.01);
 }
@@ -233,6 +244,9 @@ export interface VoiceParams {
   detune: number;
 }
 
+/**
+ * Creates a polyphonic voice for a track with oscillator, gain, pan, and filter.
+ */
 export function createVoice(trackId: string): TrackVoice {
   destroyVoice(trackId);
   const ac = getAudioContext();
@@ -272,7 +286,7 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
   const needsRecreate = voice.oscillators.length === 0 || voice.oscillators[0]!.type !== targetOscType;
 
   if (needsRecreate) {
-    voice.oscillators.forEach((o) => { try { o.stop(); } catch {} });
+    voice.oscillators.forEach((o) => { try { o.stop(); } catch (_) { /* already stopped */ } });
     voice.oscillators = [];
 
     const osc = ac.createOscillator();
@@ -291,13 +305,16 @@ export function updateVoice(trackId: string, params: VoiceParams): void {
 export function destroyVoice(trackId: string): void {
   const voice = voices.get(trackId);
   if (!voice) return;
-  voice.oscillators.forEach((o) => { try { o.stop(); } catch {} });
+  voice.oscillators.forEach((o) => { try { o.stop(); } catch (_) { /* already stopped */ } });
   voice.gainNode.disconnect();
   voice.panNode.disconnect();
   voice.filterNode.disconnect();
   voices.delete(trackId);
 }
 
+/**
+ * Destroys all active voices and disconnects nodes.
+ */
 export function destroyAllVoices(): void {
   for (const [id] of voices) destroyVoice(id);
 }

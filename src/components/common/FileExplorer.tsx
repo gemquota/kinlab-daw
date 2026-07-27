@@ -263,12 +263,12 @@ export function FileExplorer() {
         <div className="relative ml-auto flex items-center">
           <Search className="absolute left-2 w-3.5 h-3.5 text-text-tertiary pointer-events-none" />
           <input
+            aria-label="Filter files"
             type="text"
             placeholder="Filter…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-7 pr-6 py-1.5 text-sm bg-surface-tertiary border border-border-subtle rounded-lg text-text-primary placeholder:text-text-tertiary focus:border-border-accent focus:outline-none w-44"
-            aria-label="Filter files"
           />
           {searchQuery !== "" && (
             <button

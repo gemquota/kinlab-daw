@@ -7,9 +7,9 @@ import {
 } from "@/visual/visualEngine";
 import { getMasterAnalyser } from "@/audio/audioEngine";
 import { updateInteraction, applyInteractionToAudio, getInteractionState } from "@/audio/interactionManager";
-import { type VisualMode, type VisualParams, VISUAL_MODES } from "@/visual/visualParams";
+import { type VisualMode, type VisualParams } from "@/visual/visualParams";
 
-export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params: VisualParams; visualMode: VisualMode; setVisualMode: (m: VisualMode) => void }) {
+export function ImmersiveCanvas({ params, visualMode }: { params: VisualParams; visualMode: VisualMode }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<VisualState>({
     width: 0, height: 0, time: 0,
@@ -37,7 +37,6 @@ export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params:
         canvas.width = w;
         canvas.height = h;
       }
-      // Always apply scale (safe to call, resets on canvas.width/height set)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       stateRef.current.width = rect.width;
       stateRef.current.height = rect.height;
@@ -55,7 +54,7 @@ export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params:
         state.beat = state.beat * 0.7 + audio.beat * 0.3;
       }
 
-      // Idle animation: when no audio is playing, generate gentle breathing values
+      // Idle animation when no audio
       const t = state.time;
       if (state.rms < 0.01) {
         state.bass = 0.1 + Math.sin(t * 0.8) * 0.08;
@@ -65,21 +64,19 @@ export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params:
         state.beat = Math.sin(t * 2.4) > 0.7 ? 0.15 : 0;
       }
 
-      // Feed interaction state into visual state
       const iState = getInteractionState();
       state.interactionIntensity = iState.intensity;
       state.interactionX = iState.normX;
       state.interactionY = iState.normY;
       state.interactionHolding = iState.holding;
 
-      // Apply interaction to audio engine (filter, reverb, etc.)
       applyInteractionToAudio();
 
       state.hueShift = (state.hueShift + 0.1 + state.rms * 0.5) % 360;
 
       renderFrame(ctx, visualMode, state, paramsRef.current);
     } catch {
-      // Swallow errors to keep the rAF loop alive
+      // Keep rAF loop alive
     }
 
     rafRef.current = requestAnimationFrame(draw);
@@ -111,24 +108,12 @@ export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params:
     function onDown() {
       stateRef.current.mouseDown = true;
       const rect = canvas!.getBoundingClientRect();
-      updateInteraction(
-        stateRef.current.mouseX,
-        stateRef.current.mouseY,
-        rect.width,
-        rect.height,
-        true,
-      );
+      updateInteraction(stateRef.current.mouseX, stateRef.current.mouseY, rect.width, rect.height, true);
     }
     function onUp() {
       stateRef.current.mouseDown = false;
       const rect = canvas!.getBoundingClientRect();
-      updateInteraction(
-        stateRef.current.mouseX,
-        stateRef.current.mouseY,
-        rect.width,
-        rect.height,
-        false,
-      );
+      updateInteraction(stateRef.current.mouseX, stateRef.current.mouseY, rect.width, rect.height, false);
     }
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mousedown", onDown);
@@ -148,35 +133,5 @@ export function ImmersiveCanvas({ params, visualMode, setVisualMode }: { params:
     };
   }, []);
 
-  return { canvasRef, visualMode, setVisualMode };
-}
-
-export function VisualModeSelector({
-  mode, onChange,
-}: {
-  mode: VisualMode; onChange: (m: VisualMode) => void;
-}) {
-  return (
-    <div className="flex gap-1 p-1 rounded-xl bg-black/30 backdrop-blur-md border border-white/[0.06] overflow-x-auto">
-      {VISUAL_MODES.map((m) => (
-        <button
-          key={m.id}
-          aria-label={`Switch to ${m.name} mode`}
-          aria-pressed={mode === m.id}
-          onClick={() => onChange(m.id)}
-          className={`
-            px-2 py-1.5 rounded-lg text-[10px] font-medium transition-all duration-300 whitespace-nowrap shrink-0
-            ${mode === m.id
-              ? "bg-white/10 text-white shadow-lg shadow-white/5"
-              : "text-white/30 hover:text-white/60 hover:bg-white/[0.03]"
-            }
-          `}
-          title={m.desc}
-        >
-          <span className="mr-0.5">{m.icon}</span>
-          <span className="hidden sm:inline">{m.name}</span>
-        </button>
-      ))}
-    </div>
-  );
+  return { canvasRef };
 }

@@ -116,8 +116,8 @@ function ParamGroup({
 
 /* ── Individual Parameter Slider ── */
 function ParamSlider({ param }: { param: ParamDef }) {
-  const value = useVisualStore((s: any) => s.params[param.key] as number);
-  const setParam = useVisualStore((s: any) => s.setParam);
+  const value = useVisualStore((s) => s.params[param.key] as number);
+  const setParam = useVisualStore((s) => s.setParam);
 
   const displayValue = param.format
     ? param.format(value)
@@ -132,6 +132,7 @@ function ParamSlider({ param }: { param: ParamDef }) {
         <span className="text-[9px] text-white/50 font-mono w-10 text-right">{displayValue}</span>
       </div>
       <input
+        aria-label={param.label}
         type="range"
         min={param.min}
         max={param.max}
@@ -146,7 +147,7 @@ function ParamSlider({ param }: { param: ParamDef }) {
 
 /* ── Reset Button ── */
 function ResetButton() {
-  const resetParams = useVisualStore((s: any) => s.resetParams);
+  const resetParams = useVisualStore((s) => s.resetParams);
   return (
     <button
       onClick={resetParams}

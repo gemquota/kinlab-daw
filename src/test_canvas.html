@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><title>Canvas Test</title></head>
+<body style="margin:0;background:#000">
+<canvas id="c" style="position:absolute;inset:0;width:100%;height:100%"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const dpr = window.devicePixelRatio || 1;
+const rect = canvas.getBoundingClientRect();
+canvas.width = rect.width * dpr;
+canvas.height = rect.height * dpr;
+ctx.scale(dpr, dpr);
+let t = 0;
+function draw() {
+  t += 0.016;
+  const W = rect.width, H = rect.height;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, W, H);
+  // Draw a red circle that moves
+  const x = W/2 + Math.cos(t) * 100;
+  const y = H/2 + Math.sin(t) * 100;
+  ctx.fillStyle = `hsl(${t*50 % 360}, 80%, 50%)`;
+  ctx.beginPath();
+  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'white';
+  ctx.font = '20px sans-serif';
+  ctx.fillText('Canvas works! t=' + t.toFixed(1), 20, 30);
+  requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>

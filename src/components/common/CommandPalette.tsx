@@ -117,6 +117,7 @@ export function CommandPalette() {
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border-subtle">
           <Search className="w-4 h-4 text-text-tertiary shrink-0" />
           <input
+            aria-label="Search commands"
             ref={inputRef}
             type="text"
             value={query}

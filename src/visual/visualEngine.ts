@@ -1,5 +1,5 @@
 /**
- * Generative Visual Engine — 10 truly distinct audiovisual modes.
+ * Generative Visual Engine — 6 distinct audiovisual modes.
  * Each mode uses a fundamentally different rendering algorithm.
  */
 
@@ -11,17 +11,13 @@ export interface VisualState {
   width: number; height: number; time: number;
   beat: number; bass: number; mid: number; treble: number; rms: number;
   mouseX: number; mouseY: number; mouseDown: boolean; hueShift: number;
-  /** How intensely the user is interacting right now (0-1) */
   interactionIntensity: number;
-  /** Smoothed interaction X (0-1) */
   interactionX: number;
-  /** Smoothed interaction Y (0-1) */
   interactionY: number;
-  /** Whether user is holding */
   interactionHolding: boolean;
 }
 
-/* ─── Shared particle system (used by nebula/network/kaleidoscope) ─── */
+/* ─── Shared particle system (used by nebula/network) ─── */
 
 interface Particle {
   x: number; y: number; vx: number; vy: number;
@@ -41,14 +37,16 @@ function spawnParticle(state: VisualState, params: VisualParams): Particle {
     vy: (Math.random() - 0.5) * 3 * params.particleSpeed,
     life: 0, maxLife: 80 + Math.random() * 180,
     size: 1 + Math.random() * params.particleSize,
-    hue: (state.hueShift + Math.random() * 80) % 360,
-    sat: 60 + Math.random() * 40, alpha: 0.2 + Math.random() * 0.6,
+    hue: (state.hueShift + Math.random() * (params.particleHue || 80)) % 360,
+    sat: 60 + Math.random() * 40,
+    alpha: (params.particleAlpha || 0.5) + Math.random() * 0.3,
   };
 }
 
 function updateParticles(state: VisualState, params: VisualParams): void {
   const target = Math.floor(params.particleCount * (0.2 + state.rms * 0.8));
   while (particles.length < target) particles.push(spawnParticle(state, params));
+  const drag = params.particleDrag || 0.98;
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i]!;
     p.life++;
@@ -64,12 +62,11 @@ function updateParticles(state: VisualState, params: VisualParams): void {
       const f = state.mouseDown ? params.mouseForce * 6 : params.mouseForce;
       p.vx += (dx / d) * f; p.vy += (dy / d) * f;
     }
-    // Interaction amplifies particle speed
     p.vx += p.vx * state.interactionIntensity * 0.3;
     p.vy += p.vy * state.interactionIntensity * 0.3;
     p.vx += Math.sin(state.time * 4 + p.x * 0.008) * state.bass * 0.8;
     p.vy += Math.cos(state.time * 4 + p.y * 0.008) * state.bass * 0.8;
-    p.vx *= params.friction; p.vy *= params.friction;
+    p.vx *= params.friction * drag; p.vy *= params.friction * drag;
     p.x += p.vx; p.y += p.vy;
     if (p.x < -20) p.x = state.width + 20;
     if (p.x > state.width + 20) p.x = -20;
@@ -80,7 +77,7 @@ function updateParticles(state: VisualState, params: VisualParams): void {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   1. NEBULA — Pure radial gradient clouds + noise grain (NO particles)
+   1. NEBULA — Cosmic radial gradient clouds with swirl + pulse
    ═══════════════════════════════════════════════════════════════════ */
 
 function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
@@ -88,7 +85,7 @@ function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: V
   const t = state.time * params.speed;
   const rms = Math.max(state.rms, 0.15);
 
-  // Deep space gradient — visible dark blue/purple
+  // Deep space gradient
   const bg = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.7);
   bg.addColorStop(0, `hsla(${state.hueShift + 240}, 30%, 8%, 1)`);
   bg.addColorStop(0.5, `hsla(${state.hueShift + 260}, 25%, 4%, 1)`);
@@ -96,27 +93,38 @@ function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: V
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  // Orbital nebula clouds — bright radial gradient blobs
+  // Orbital nebula clouds with swirl and rotation
   const count = Math.floor(params.nebulaClouds);
-  for (let i = 0; i < count; i++) {
-    const angle = t * 0.08 + (i * Math.PI * 2) / count;
-    const pullX = (state.interactionX - 0.5) * state.interactionIntensity * 200;
-    const pullY = (state.interactionY - 0.5) * state.interactionIntensity * 200;
-    const dist = 120 + state.bass * 200 + i * 80;
-    const x = cx + Math.cos(angle) * dist + pullX;
-    const y = cy + Math.sin(angle) * dist + pullY;
-    const size = (150 + state.mid * 120 + i * 40) * params.intensity * (1 + state.interactionIntensity * 0.5);
+  const rotSpeed = params.nebulaRotation || 0.3;
+  const swirl = params.nebulaSwirl || 0;
+  const pulse = params.nebulaPulse || 0.5;
+  const depthLayers = Math.floor(params.nebulaDepth || 3);
 
-    const hue = (state.hueShift + i * 35) % 360;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, size);
-    g.addColorStop(0, `hsla(${hue}, 70%, ${25 + rms * 30}%, ${0.35 + rms * 0.2})`);
-    g.addColorStop(0.4, `hsla(${(hue + 15) % 360}, 55%, ${15 + rms * 20}%, ${0.15 + rms * 0.1})`);
-    g.addColorStop(1, "transparent");
-    ctx.fillStyle = g;
-    ctx.fillRect(x - size, y - size, size * 2, size * 2);
+  for (let layer = 0; layer < depthLayers; layer++) {
+    const layerDepth = (layer + 1) / depthLayers;
+    for (let i = 0; i < count; i++) {
+      const baseAngle = t * 0.08 * rotSpeed + (i * Math.PI * 2) / count + layer * 0.5;
+      const swirlOffset = Math.sin(t * 0.3 + i) * swirl * 50;
+      const pullX = (state.interactionX - 0.5) * state.interactionIntensity * 200;
+      const pullY = (state.interactionY - 0.5) * state.interactionIntensity * 200;
+      const dist = (120 + state.bass * 200 + i * 80) * layerDepth;
+      const x = cx + Math.cos(baseAngle) * dist + pullX + swirlOffset;
+      const y = cy + Math.sin(baseAngle) * dist + pullY;
+      const pulseScale = 1 + Math.sin(t * 2 + i) * pulse * 0.3;
+      const size = (150 + state.mid * 120 + i * 40) * params.intensity * pulseScale * layerDepth
+        * (1 + state.interactionIntensity * 0.5);
+
+      const hue = (state.hueShift + i * 35 + layer * 20) % 360;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, size);
+      g.addColorStop(0, `hsla(${hue}, 70%, ${25 + rms * 30}%, ${(0.35 + rms * 0.2) * layerDepth})`);
+      g.addColorStop(0.4, `hsla(${(hue + 15) % 360}, 55%, ${15 + rms * 20}%, ${(0.15 + rms * 0.1) * layerDepth})`);
+      g.addColorStop(1, "transparent");
+      ctx.fillStyle = g;
+      ctx.fillRect(x - size, y - size, size * 2, size * 2);
+    }
   }
 
-  // Star field — brighter dots with glow
+  // Star field
   for (let i = 0; i < 80; i++) {
     const sx = ((i * 7919 + 1234) % W);
     const sy = ((i * 6271 + 5678) % H);
@@ -126,7 +134,22 @@ function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: V
     ctx.fillRect(sx, sy, sz, sz);
   }
 
-  // Noise grain — visible when audio plays
+  // Warp distortion overlay
+  if (params.nebulaWarp > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const warpSize = Math.min(W, H) * 0.4 * params.nebulaWarp;
+    const warpX = cx + Math.cos(t * 0.7) * warpSize;
+    const warpY = cy + Math.sin(t * 0.5) * warpSize;
+    const wg = ctx.createRadialGradient(warpX, warpY, 0, warpX, warpY, warpSize);
+    wg.addColorStop(0, `hsla(${(state.hueShift + 120) % 360}, 60%, 30%, ${0.08 * state.rms})`);
+    wg.addColorStop(1, "transparent");
+    ctx.fillStyle = wg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // Noise grain
   if (rms > 0.05 && params.nebulaNoise > 0) {
     ctx.globalAlpha = rms * params.nebulaNoise * 2;
     const imgData = ctx.getImageData(0, 0, W, H);
@@ -149,205 +172,77 @@ function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: V
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   2. NETWORK — Connected particle graph with distance-based links
+   2. NETWORK — Connected particle graph with pulse + glow
    ═══════════════════════════════════════════════════════════════════ */
 
 function drawNetwork(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
   const W = state.width, H = state.height;
-  ctx.fillStyle = `hsla(${state.hueShift + 220}, 15%, 3%, ${params.trailFade})`;
+  const decay = params.networkDecay || 0.95;
+  ctx.fillStyle = `hsla(${state.hueShift + 220}, 15%, 3%, ${1 - decay + 0.02})`;
   ctx.fillRect(0, 0, W, H);
   updateParticles(state, params);
 
   const linkDist = params.networkLinkDist + state.rms * 40 + state.interactionIntensity * 60;
+  const pulse = params.networkPulse || 0;
+  const pulseSpeed = params.linkPulseSpeed || 2;
+  const linkAlphaBase = params.linkOpacity || 0.4;
+  const jitter = params.networkJitter || 0;
+  const colorMode = Math.floor(params.networkColor || 0);
+
   for (let i = 0; i < particles.length; i++) {
     for (let j = i + 1; j < Math.min(i + 30, particles.length); j++) {
       const a = particles[i]!, b = particles[j]!;
       const dx = a.x - b.x, dy = a.y - b.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < linkDist) {
-        const alpha = (1 - dist / linkDist) * 0.15 * (0.5 + state.rms * 0.5);
+        const pulseMod = pulse > 0 ? Math.sin(state.time * pulseSpeed + i * 0.1) * pulse * 0.3 : 0;
+        const alpha = (1 - dist / linkDist) * linkAlphaBase * (0.5 + state.rms * 0.5 + pulseMod);
+        let hue: number;
+        if (colorMode === 0) hue = (a.hue + state.hueShift) % 360;
+        else if (colorMode === 1) hue = (dist / linkDist * 120 + state.hueShift) % 360;
+        else if (colorMode === 2) hue = (state.hueShift + state.time * 20) % 360;
+        else hue = (a.hue + b.hue) / 2;
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-        ctx.strokeStyle = `hsla(${(a.hue + state.hueShift) % 360}, 60%, 50%, ${alpha})`;
+        ctx.moveTo(a.x + (Math.random() - 0.5) * jitter * 3, a.y + (Math.random() - 0.5) * jitter * 3);
+        ctx.lineTo(b.x + (Math.random() - 0.5) * jitter * 3, b.y + (Math.random() - 0.5) * jitter * 3);
+        ctx.strokeStyle = `hsla(${hue}, 60%, 50%, ${alpha})`;
         ctx.lineWidth = params.networkLineWidth + state.beat * 0.5;
         ctx.stroke();
       }
     }
   }
+
+  const nodeGlow = params.networkNodeGlow || 0;
+  const shape = Math.floor(params.nodeShape || 0);
   for (const p of particles) {
     const lr = p.life / p.maxLife;
     const alpha = p.alpha * Math.min(1, p.life / 10) * Math.max(0, 1 - (lr - 0.7) / 0.3) * (0.5 + state.rms * 0.5);
+    const sz = p.size * (1 + state.beat * 0.6);
+    const hue = (p.hue + state.hueShift) % 360;
+    if (nodeGlow > 0) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, sz * nodeGlow * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${hue}, 60%, 50%, ${alpha * 0.15})`;
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * (1 + state.beat * 0.6), 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${(p.hue + state.hueShift) % 360}, ${p.sat}%, ${50 + state.rms * 20}%, ${alpha})`;
+    if (shape === 0) {
+      ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+    } else if (shape === 1) {
+      ctx.rect(p.x - sz, p.y - sz, sz * 2, sz * 2);
+    } else {
+      ctx.moveTo(p.x, p.y - sz);
+      ctx.lineTo(p.x - sz, p.y + sz);
+      ctx.lineTo(p.x + sz, p.y + sz);
+      ctx.closePath();
+    }
+    ctx.fillStyle = `hsla(${hue}, ${p.sat}%, ${50 + state.rms * 20}%, ${alpha})`;
     ctx.fill();
   }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   3. KALEIDOSCOPE — Symmetric particle mandala
-   ═══════════════════════════════════════════════════════════════════ */
-
-function drawKaleidoscope(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
-  const W = state.width, H = state.height;
-  const cx = W / 2, cy = H / 2;
-  const seg = Math.floor(params.kaleidoSegments + state.interactionIntensity * 4);
-  const step = (Math.PI * 2) / seg;
-
-  ctx.fillStyle = `hsla(${state.hueShift + 220}, 12%, 3%, 0.05)`;
-  ctx.fillRect(0, 0, W, H);
-  updateParticles(state, params);
-
-  for (const p of particles) {
-    const dx = p.x - cx, dy = p.y - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    const angle = Math.atan2(dy, dx);
-    for (let s = 0; s < seg; s++) {
-      const sa = angle + s * step + state.time * params.kaleidoSpin * 0.1;
-      const sx = cx + Math.cos(sa) * dist, sy = cy + Math.sin(sa) * dist;
-      const lr = p.life / p.maxLife;
-      const alpha = p.alpha * (1 - lr) * 0.5;
-      ctx.beginPath();
-      ctx.arc(sx, sy, p.size * (1 + state.beat * 2), 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${(p.hue + s * (360 / seg) + state.hueShift) % 360}, 65%, 50%, ${alpha})`;
-      ctx.fill();
-    }
-  }
-  const rings = Math.floor(params.kaleidoRings);
-  for (let r = 0; r < rings; r++) {
-    const radius = 25 + r * 35 + state.rms * 50;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = `hsla(${(state.hueShift + r * 25) % 360}, 55%, 45%, ${0.18 - r * 0.025})`;
-    ctx.lineWidth = 0.8 + state.beat * 2.5;
-    ctx.stroke();
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   4. OSCILLOSCOPE — Real-time XY oscilloscope traces
-   ═══════════════════════════════════════════════════════════════════ */
-
-interface OscTrace { points: number[][]; }
-
-let oscTraces: OscTrace[] = [];
-
-function drawOscilloscope(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
-  const W = state.width, H = state.height;
-  const cx = W / 2, cy = H / 2;
-  const t = state.time * params.speed;
-  const radius = Math.min(W, H) * params.oscScale * (1 + state.interactionIntensity * 0.5);
-
-  // Dark background with slight phosphor glow
-  ctx.fillStyle = "rgba(0, 3, 0, 0.06)";
-  ctx.fillRect(0, 0, W, H);
-
-  // Grid lines (oscilloscope style)
-  ctx.strokeStyle = "rgba(0, 255, 0, 0.04)";
-  ctx.lineWidth = 0.5;
-  for (let i = 0; i < 10; i++) {
-    const x = (i / 9) * W;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    const y = (i / 9) * H;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
-  }
-
-  // Initialize traces
-  while (oscTraces.length < params.oscLayers) {
-    oscTraces.push({ points: [] });
-  }
-
-  // Generate new points from audio
-  const layers = Math.floor(params.oscLayers);
-  for (let l = 0; l < layers; l++) {
-    const trace = oscTraces[l]!;
-    const freq1 = 3 + l * 2 + state.bass * 4;
-    const freq2 = 2 + l * 1.5 + state.mid * 3;
-    const phase = t * (0.5 + l * 0.3);
-
-    // XY mode: x = sin(freq1*t), y = cos(freq2*t+phase)
-    const x = cx + Math.sin(t * freq1 + phase) * radius * (1 + state.rms * 0.3);
-    const y = cy + Math.cos(t * freq2 + phase * 0.7) * radius * (1 + state.beat * 0.2);
-
-    trace.points.push([x, y]);
-    if (trace.points.length > params.oscTraceLength) trace.points.shift();
-  }
-
-  // Draw traces
-  for (let l = 0; l < layers; l++) {
-    const trace = oscTraces[l]!;
-    if (trace.points.length < 2) continue;
-    const hue = (120 + l * 40) % 360; // green-ish phosphor tones
-
-    for (let i = 1; i < trace.points.length; i++) {
-      const alpha = (i / trace.points.length) * 0.8;
-      ctx.beginPath();
-      ctx.moveTo(trace.points[i - 1]![0]!, trace.points[i - 1]![1]!);
-      ctx.lineTo(trace.points[i]![0]!, trace.points[i]![1]!);
-      ctx.strokeStyle = `hsla(${hue}, 80%, ${40 + state.rms * 30}%, ${alpha})`;
-      ctx.lineWidth = 1.5 + state.beat * 0.5;
-      ctx.stroke();
-    }
-  }
-
-  // Center crosshair
-  ctx.strokeStyle = "rgba(0, 255, 0, 0.08)";
-  ctx.lineWidth = 0.5;
-  ctx.beginPath(); ctx.moveTo(cx - 20, cy); ctx.lineTo(cx + 20, cy); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(cx, cy - 20); ctx.lineTo(cx, cy + 20); ctx.stroke();
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   5. TERRAIN — Retro 3D scanline wireframe landscape
-   ═══════════════════════════════════════════════════════════════════ */
-
-function drawTerrain(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
-  const W = state.width, H = state.height;
-  const t = state.time * params.speed;
-
-  ctx.fillStyle = `hsla(${state.hueShift + 240}, 10%, 2%, 1)`;
-  ctx.fillRect(0, 0, W, H);
-
-  const layers = Math.floor(params.terrainLayers);
-  const horizon = H * params.terrainPerspective;
-
-  for (let i = 0; i < layers; i++) {
-    const tt = i / layers;
-    const y = horizon + (H - horizon) * tt;
-    const depth = 1 - tt;
-
-    ctx.beginPath();
-    for (let x = 0; x < W; x += 3) {
-      const nx = x / W;
-      const wave = Math.sin(nx * 8 - t * 3) * depth * 30 * (1 + state.bass * 2) * params.terrainHeight;
-      const wave2 = Math.cos(nx * 12 + t * 2) * depth * 15 * state.mid * params.terrainHeight;
-      const height = depth * 60 * (1 + state.rms * params.intensity);
-      const py = y - height + wave + wave2;
-      if (x === 0) ctx.moveTo(x, py); else ctx.lineTo(x, py);
-    }
-
-    const hue = (state.hueShift + i * 6) % 360;
-    ctx.strokeStyle = `hsla(${hue}, 70%, ${30 + depth * 30}%, ${0.3 * depth + state.rms * 0.2})`;
-    ctx.lineWidth = 0.8 + depth * 0.5;
-    ctx.stroke();
-
-    if (i % 3 === 0) {
-      ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-      ctx.fillStyle = `hsla(${hue}, 50%, ${10 + depth * 15}%, ${0.03 * depth})`;
-      ctx.fill();
-    }
-  }
-
-  if (params.terrainScanlines) {
-    for (let y = 0; y < H; y += 3) {
-      ctx.fillStyle = "rgba(0,0,0,0.08)";
-      ctx.fillRect(0, y, W, 1);
-    }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   6. PLASMA — Classic demoscene plasma (sin/cos color math)
+   3. PLASMA — Demoscene plasma with warp + frequency control
    ═══════════════════════════════════════════════════════════════════ */
 
 function drawPlasma(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
@@ -356,72 +251,84 @@ function drawPlasma(ctx: CanvasRenderingContext2D, state: VisualState, params: V
   const t = state.time * params.speed * params.plasmaSpeed * interactSpeed;
   const scale = params.plasmaScale * (1 + state.interactionIntensity * 0.5);
   const layers = Math.floor(params.plasmaLayers);
+  const freq = params.plasmaFrequency || 1.5;
+  const contrast = params.plasmaContrast || 1;
+  const rotation = params.plasmaRotation || 0;
+  const warp = params.plasmaWarp || 0;
+  const alpha = params.plasmaAlpha || 0.8;
 
-  // Use ImageData for pixel-level plasma
   const imgData = ctx.getImageData(0, 0, W, H);
   const d = imgData.data;
-  const step = 4; // Skip pixels for performance
+  const step = 4;
+
+  const cosR = Math.cos(rotation * t * 0.1);
+  const sinR = Math.sin(rotation * t * 0.1);
 
   for (let y = 0; y < H; y += step) {
     for (let x = 0; x < W; x += step) {
-      const nx = (x / W) * scale;
-      const ny = (y / H) * scale;
+      let nx = (x / W) * scale;
+      let ny = (y / H) * scale;
 
-      // Combine multiple sine waves for plasma effect
+      // Rotation
+      if (rotation > 0) {
+        const rx = nx * cosR - ny * sinR;
+        const ry = nx * sinR + ny * cosR;
+        nx = rx; ny = ry;
+      }
+
+      // Warp distortion
+      if (warp > 0) {
+        nx += Math.sin(ny * 4 + t) * warp * 0.3;
+        ny += Math.cos(nx * 4 + t * 0.7) * warp * 0.3;
+      }
+
       let v = 0;
       for (let l = 0; l < layers; l++) {
-        const freq = 1 + l * 0.5;
-        v += Math.sin(nx * freq * 6 + t * (0.5 + l * 0.2));
-        v += Math.cos(ny * freq * 4 + t * (0.3 + l * 0.15));
-        v += Math.sin(Math.sqrt((nx - 0.5) * (nx - 0.5) + (ny - 0.5) * (ny - 0.5)) * 8 + t);
+        const f = freq + l * 0.5;
+        v += Math.sin(nx * f * 6 + t * (0.5 + l * 0.2));
+        v += Math.cos(ny * f * 4 + t * (0.3 + l * 0.15));
+        v += Math.sin(Math.sqrt((nx - 0.5) ** 2 + (ny - 0.5) ** 2) * 8 + t);
       }
-      v = (v + layers * 3) / (layers * 6); // Normalize to 0..1
+      v = (v + layers * 3) / (layers * 6);
+      v = Math.pow(Math.max(0, Math.min(1, v)), 1 / Math.max(0.1, contrast));
 
-      // Audio modulation
       v += state.bass * 0.2 * Math.sin(nx * 10 + t);
       v += state.mid * 0.15 * Math.cos(ny * 8 + t * 1.3);
       v = Math.max(0, Math.min(1, v));
 
-      // Color mapping based on palette
-      let r: number, g: number, b: number;
       const palette = Math.floor(params.plasmaPalette);
+      let r: number, g: number, b: number;
       if (palette === 0) {
-        // Rainbow
         r = Math.floor(v * 255);
         g = Math.floor(Math.sin(v * Math.PI * 2 + 2.094) * 127 + 128);
         b = Math.floor(Math.sin(v * Math.PI * 2 + 4.189) * 127 + 128);
       } else if (palette === 1) {
-        // Fire
         r = Math.floor(Math.min(255, v * 400));
         g = Math.floor(Math.min(255, v * 200 * (1 - v)));
         b = Math.floor(v * 30);
       } else if (palette === 2) {
-        // Ice
         r = Math.floor(v * 40);
         g = Math.floor(v * 180 + 50);
         b = Math.floor(Math.min(255, v * 350));
       } else {
-        // Monochrome green (oscilloscope)
         r = 0;
         g = Math.floor(v * 255);
         b = Math.floor(v * 40);
       }
 
-      // Fill step×step block
       for (let dy = 0; dy < step && y + dy < H; dy++) {
         for (let dx = 0; dx < step && x + dx < W; dx++) {
           const idx = ((y + dy) * W + (x + dx)) * 4;
           d[idx] = r;
           d[idx + 1] = g;
           d[idx + 2] = b;
-          d[idx + 3] = 255;
+          d[idx + 3] = Math.floor(alpha * 255);
         }
       }
     }
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // Beat flash overlay
   if (state.beat > 0.5) {
     ctx.fillStyle = `hsla(${state.hueShift + 60}, 80%, 50%, ${(state.beat - 0.5) * 0.1})`;
     ctx.fillRect(0, 0, W, H);
@@ -429,98 +336,7 @@ function drawPlasma(ctx: CanvasRenderingContext2D, state: VisualState, params: V
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   7. FLUID — Simplex noise flow field with particle traces
-   ═══════════════════════════════════════════════════════════════════ */
-
-function noise2D(x: number, y: number): number {
-  const ix = Math.floor(x), iy = Math.floor(y);
-  const fx = x - ix, fy = y - iy;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const hash = (a: number, b: number) => {
-    let h = ((a * 2654435761 + b * 2246822519) >>> 0) & 0x7fffffff;
-    h = ((h >> 13) ^ h) * 1274126177;
-    return ((h >> 16) ^ h) & 0x7fffffff;
-  };
-  const v00 = (hash(ix, iy) & 0xffff) / 0xffff;
-  const v10 = (hash(ix + 1, iy) & 0xffff) / 0xffff;
-  const v01 = (hash(ix, iy + 1) & 0xffff) / 0xffff;
-  const v11 = (hash(ix + 1, iy + 1) & 0xffff) / 0xffff;
-  return v00 * (1 - sx) * (1 - sy) + v10 * sx * (1 - sy) + v01 * (1 - sx) * sy + v11 * sx * sy;
-}
-
-function fbm(x: number, y: number, params: VisualParams): number {
-  let value = 0, amp = 1, freq = 1, max = 0;
-  for (let i = 0; i < params.fluidOctaves; i++) {
-    value += noise2D(x * freq, y * freq) * amp;
-    max += amp;
-    amp *= params.fluidPersistence;
-    freq *= params.fluidLacunarity;
-  }
-  return value / max;
-}
-
-interface FluidDot { x: number; y: number; vx: number; vy: number; hue: number; life: number; }
-
-let fluidDots: FluidDot[] = [];
-
-function drawFluid(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
-  const W = state.width, H = state.height;
-  const t = state.time * params.speed * 0.3;
-
-  ctx.fillStyle = `hsla(${state.hueShift + 220}, 15%, 2%, ${params.trailFade || 0.05})`;
-  ctx.fillRect(0, 0, W, H);
-
-  // Spawn dots
-  while (fluidDots.length < 800) {
-    fluidDots.push({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: 0, vy: 0,
-      hue: Math.random() * 360,
-      life: Math.random() * 200,
-    });
-  }
-
-  // Update and draw dots — each follows the noise flow field
-  for (let i = fluidDots.length - 1; i >= 0; i--) {
-    const dot = fluidDots[i]!;
-    dot.life++;
-
-    const nx = dot.x * params.fluidScale;
-    const ny = dot.y * params.fluidScale;
-    const v = fbm(nx + t, ny + t * 0.7, params);
-    const angle = v * Math.PI * 4 + state.time * 0.5;
-
-    const interactBoost = 1 + state.interactionIntensity * 3;
-    dot.vx = Math.cos(angle) * 2 * params.intensity * interactBoost;
-    dot.vy = Math.sin(angle) * 2 * params.intensity * interactBoost;
-    // Pull toward cursor when holding
-    if (state.interactionHolding) {
-      const tdx = state.mouseX - dot.x, tdy = state.mouseY - dot.y;
-      const td = Math.sqrt(tdx * tdx + tdy * tdy) + 1;
-      dot.vx += (tdx / td) * state.interactionIntensity * 0.5;
-      dot.vy += (tdy / td) * state.interactionIntensity * 0.5;
-    }
-    dot.x += dot.vx;
-    dot.y += dot.vy;
-
-    // Wrap
-    if (dot.x < 0) dot.x = W;
-    if (dot.x > W) dot.x = 0;
-    if (dot.y < 0) dot.y = H;
-    if (dot.y > H) dot.y = 0;
-
-    if (dot.life > 200) { fluidDots.splice(i, 1); continue; }
-
-    const alpha = Math.min(1, dot.life / 20) * Math.max(0, 1 - dot.life / 200) * (0.3 + v * 0.5);
-    const hue = (state.hueShift + v * 360 + dot.hue) % 360;
-    ctx.fillStyle = `hsla(${hue}, 60%, ${30 + v * 30}%, ${alpha})`;
-    ctx.fillRect(dot.x, dot.y, 1.5, 1.5);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   8. ORBS — Gravitational physics orbs with glow
+   4. ORBS — Gravitational physics with charge + bounce + pulse
    ═══════════════════════════════════════════════════════════════════ */
 
 interface Orb { x: number; y: number; vx: number; vy: number; size: number; baseSize: number; hue: number; }
@@ -546,32 +362,78 @@ function drawOrbs(ctx: CanvasRenderingContext2D, state: VisualState, params: Vis
   if (orbs.length !== params.orbCount) initOrbs(state, params);
 
   const cx = state.mouseX || W / 2, cy = state.mouseY || H / 2;
+  const damping = params.orbDamping || 0.995;
+  const charge = params.orbCharge || 0;
+  const bounce = params.orbBounce || 0.8;
+  const magnetism = params.orbMagnetism || 0;
+  const orbPulse = params.orbPulse || 0;
+  const opacity = params.orbOpacity || 0.85;
+  const colorMode = Math.floor(params.orbColor || 0);
+
+  // Orb-orb repulsion when charge > 0
+  if (charge !== 0) {
+    for (let i = 0; i < orbs.length; i++) {
+      for (let j = i + 1; j < orbs.length; j++) {
+        const a = orbs[i]!, b = orbs[j]!;
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const d = Math.sqrt(dx * dx + dy * dy) + 1;
+        const force = charge * 0.01 / (d * 0.1);
+        a.vx -= (dx / d) * force;
+        a.vy -= (dy / d) * force;
+        b.vx += (dx / d) * force;
+        b.vy += (dy / d) * force;
+      }
+    }
+  }
+
   for (const orb of orbs) {
     const dx = cx - orb.x, dy = cy - orb.y;
     const dist = Math.sqrt(dx * dx + dy * dy) + 1;
     const interactGrav = params.orbGravity * (1 + state.interactionIntensity * 3);
     orb.vx += (dx / dist) * interactGrav;
     orb.vy += (dy / dist) * interactGrav;
-    orb.size = orb.baseSize * (1 + state.beat * 0.5 * params.intensity + state.interactionIntensity * 0.4);
+
+    // Magnetism toward cursor
+    if (magnetism > 0 && state.interactionHolding) {
+      orb.vx += (dx / dist) * magnetism * 0.05;
+      orb.vy += (dy / dist) * magnetism * 0.05;
+    }
+
+    const pulseScale = 1 + state.beat * 0.5 * params.intensity * (1 + orbPulse) + state.interactionIntensity * 0.4;
+    orb.size = orb.baseSize * pulseScale;
     orb.hue = (orb.hue + state.rms * 2) % 360;
-    orb.vx *= 0.995; orb.vy *= 0.995;
+    orb.vx *= damping; orb.vy *= damping;
     orb.x += orb.vx; orb.y += orb.vy;
-    if (orb.x < -orb.size) orb.x = W + orb.size;
-    if (orb.x > W + orb.size) orb.x = -orb.size;
-    if (orb.y < -orb.size) orb.y = H + orb.size;
-    if (orb.y > H + orb.size) orb.y = -orb.size;
+
+    // Bounce off walls
+    if (bounce > 0) {
+      if (orb.x < 0) { orb.x = 0; orb.vx = Math.abs(orb.vx) * bounce; }
+      if (orb.x > W) { orb.x = W; orb.vx = -Math.abs(orb.vx) * bounce; }
+      if (orb.y < 0) { orb.y = 0; orb.vy = Math.abs(orb.vy) * bounce; }
+      if (orb.y > H) { orb.y = H; orb.vy = -Math.abs(orb.vy) * bounce; }
+    } else {
+      if (orb.x < -orb.size) orb.x = W + orb.size;
+      if (orb.x > W + orb.size) orb.x = -orb.size;
+      if (orb.y < -orb.size) orb.y = H + orb.size;
+      if (orb.y > H + orb.size) orb.y = -orb.size;
+    }
+
+    let hue = orb.hue;
+    if (colorMode === 1) hue = (state.hueShift + orb.x / W * 120) % 360;
+    else if (colorMode === 2) hue = (state.hueShift + state.time * 30) % 360;
+    else if (colorMode === 3) hue = (orb.hue + state.hueShift) % 360;
 
     if (params.orbGlow > 0) {
       const gg = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.size * 2 * params.orbGlow);
-      gg.addColorStop(0, `hsla(${orb.hue}, 70%, 50%, ${0.15 * params.intensity})`);
+      gg.addColorStop(0, `hsla(${hue}, 70%, 50%, ${0.15 * params.intensity * opacity})`);
       gg.addColorStop(1, "transparent");
       ctx.fillStyle = gg;
       ctx.fillRect(orb.x - orb.size * 2, orb.y - orb.size * 2, orb.size * 4, orb.size * 4);
     }
     const og = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.size);
-    og.addColorStop(0, `hsla(${orb.hue}, 70%, ${50 + state.rms * 20}%, 0.8)`);
-    og.addColorStop(0.6, `hsla(${orb.hue}, 60%, ${30 + state.rms * 10}%, 0.4)`);
-    og.addColorStop(1, `hsla(${orb.hue}, 50%, 20%, 0)`);
+    og.addColorStop(0, `hsla(${hue}, 70%, ${50 + state.rms * 20}%, ${0.8 * opacity})`);
+    og.addColorStop(0.6, `hsla(${hue}, 60%, ${30 + state.rms * 10}%, ${0.4 * opacity})`);
+    og.addColorStop(1, `hsla(${hue}, 50%, 20%, 0)`);
     ctx.fillStyle = og;
     ctx.beginPath();
     ctx.arc(orb.x, orb.y, orb.size, 0, Math.PI * 2);
@@ -580,7 +442,7 @@ function drawOrbs(ctx: CanvasRenderingContext2D, state: VisualState, params: Vis
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   9. VORONOI — Organic cell tessellation
+   5. VORONOI — Organic cell tessellation with drift + pulse
    ═══════════════════════════════════════════════════════════════════ */
 
 interface VoronoiPt { x: number; y: number; vx: number; vy: number; hue: number; }
@@ -600,33 +462,39 @@ function initVoronoi(state: VisualState, params: VisualParams): void {
 function drawVoronoi(ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams): void {
   const W = state.width, H = state.height;
   const t = state.time * params.speed;
+  const drift = params.voronoiDrift || 0.3;
+  const noise = params.voronoiNoise || 0;
+  const colorMode = Math.floor(params.voronoiColor || 0);
+  const opacity = params.voronoiOpacity || 0.6;
+  const fade = params.voronoiFade || 0.3;
 
   ctx.fillStyle = `rgba(0, 0, 0, ${params.trailFade || 0.08})`;
   ctx.fillRect(0, 0, W, H);
 
   if (voronoiPts.length !== params.voronoiPoints) initVoronoi(state, params);
 
-  // Move points
   for (const pt of voronoiPts) {
-    // Interaction pushes voronoi points outward from cursor
     const vdx = pt.x - state.mouseX, vdy = pt.y - state.mouseY;
     const vd = Math.sqrt(vdx * vdx + vdy * vdy) + 1;
     const vPush = state.interactionIntensity * 0.8 / vd;
-    pt.x += pt.vx + Math.sin(t + pt.y * 0.01) * state.bass * 2 + (vdx / vd) * vPush;
-    pt.y += pt.vy + Math.cos(t + pt.x * 0.01) * state.bass * 2 + (vdy / vd) * vPush;
+    pt.x += pt.vx * drift + Math.sin(t + pt.y * 0.01) * state.bass * 2 + (vdx / vd) * vPush;
+    pt.y += pt.vy * drift + Math.cos(t + pt.x * 0.01) * state.bass * 2 + (vdy / vd) * vPush;
+    if (noise > 0) {
+      pt.x += (Math.random() - 0.5) * noise * 3;
+      pt.y += (Math.random() - 0.5) * noise * 3;
+    }
     if (pt.x < 0) pt.x = W; if (pt.x > W) pt.x = 0;
     if (pt.y < 0) pt.y = H; if (pt.y > H) pt.y = 0;
     pt.hue = (pt.hue + state.rms) % 360;
   }
 
-  // Render Voronoi cells using pixel sampling
   const imgData = ctx.getImageData(0, 0, W, H);
   const d = imgData.data;
   const cellPx = Math.max(2, Math.floor(params.voronoiCellSize));
+  const edgePulse = 1 + state.beat * 0.5 * (params.voronoiPulse || 0);
 
   for (let y = 0; y < H; y += cellPx) {
     for (let x = 0; x < W; x += cellPx) {
-      // Find nearest two points
       let minDist = Infinity, secondDist = Infinity;
       let nearestHue = 0;
       for (const pt of voronoiPts) {
@@ -637,29 +505,37 @@ function drawVoronoi(ctx: CanvasRenderingContext2D, state: VisualState, params: 
       }
 
       const edgeDist = Math.sqrt(secondDist) - Math.sqrt(minDist);
-      const isEdge = edgeDist < params.voronoiEdgeWidth * (1 + state.beat * 0.5);
+      const isEdge = edgeDist < params.voronoiEdgeWidth * edgePulse;
+
+      let cellHue: number;
+      if (colorMode === 0) cellHue = nearestHue;
+      else if (colorMode === 1) cellHue = (state.hueShift + Math.sqrt(minDist) * 0.5) % 360;
+      else if (colorMode === 2) cellHue = (nearestHue + state.time * 20) % 360;
+      else cellHue = (nearestHue + state.hueShift) % 360;
 
       if (isEdge) {
-        // Bright edge
-        for (let dy = 0; dy < cellPx && y + dy < H; dy++) {
-          for (let dx = 0; dx < cellPx && x + dx < W; dx++) {
-            const idx = ((y + dy) * W + (x + dx)) * 4;
-            d[idx] = Math.floor(200 + state.rms * 55);
-            d[idx + 1] = Math.floor(220 + state.rms * 35);
-            d[idx + 2] = Math.floor(255);
+        for (let dy2 = 0; dy2 < cellPx && y + dy2 < H; dy2++) {
+          for (let dx2 = 0; dx2 < cellPx && x + dx2 < W; dx2++) {
+            const idx = ((y + dy2) * W + (x + dx2)) * 4;
+            const edgeFade = fade > 0 ? Math.min(1, edgeDist / (fade * 5 + 0.1)) : 1;
+            const brightness = (40 + state.rms * 30) * edgeFade;
+            d[idx] = Math.floor(Math.min(255, brightness * 1.2));
+            d[idx + 1] = Math.floor(Math.min(255, brightness * 0.9));
+            d[idx + 2] = Math.floor(Math.min(255, brightness * 1.5));
             d[idx + 3] = 255;
           }
         }
       } else if (params.voronoiFill) {
-        // Colored cell interior
-        const cellHue = (nearestHue + state.hueShift) % 360;
-        const brightness = 15 + state.rms * 10 + (Math.sin(nearestHue * 0.05 + t) * 5);
-        for (let dy = 0; dy < cellPx && y + dy < H; dy++) {
-          for (let dx = 0; dx < cellPx && x + dx < W; dx++) {
-            const idx = ((y + dy) * W + (x + dx)) * 4;
-            d[idx] = Math.floor(Math.sin(cellHue * 0.0175) * 40 + brightness + 20);
-            d[idx + 1] = Math.floor(Math.sin(cellHue * 0.0175 + 2.094) * 40 + brightness + 15);
-            d[idx + 2] = Math.floor(Math.sin(cellHue * 0.0175 + 4.189) * 40 + brightness + 30);
+        const h = cellHue / 360;
+        const r2 = Math.floor(h * 6 < 1 ? 255 : h * 6 < 2 ? 255 * (2 - h * 6) : 0);
+        const g2 = Math.floor(h * 6 < 1 ? 255 * h * 6 : h * 6 < 3 ? 255 : h * 6 < 4 ? 255 * (4 - h * 6) : 0);
+        const b2 = Math.floor(h * 6 < 2 ? 0 : h * 6 < 3 ? 255 * (h * 6 - 2) : h * 6 < 5 ? 255 : 255 * (6 - h * 6));
+        for (let dy2 = 0; dy2 < cellPx && y + dy2 < H; dy2++) {
+          for (let dx2 = 0; dx2 < cellPx && x + dx2 < W; dx2++) {
+            const idx = ((y + dy2) * W + (x + dx2)) * 4;
+            d[idx] = Math.floor(r2 * opacity * 0.4);
+            d[idx + 1] = Math.floor(g2 * opacity * 0.4);
+            d[idx + 2] = Math.floor(b2 * opacity * 0.4);
             d[idx + 3] = 255;
           }
         }
@@ -670,7 +546,7 @@ function drawVoronoi(ctx: CanvasRenderingContext2D, state: VisualState, params: 
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   10. FRACTAL — Recursive branching trees
+   6. FRACTAL — Recursive branching trees with glow + chaos
    ═══════════════════════════════════════════════════════════════════ */
 
 function drawBranch(
@@ -680,19 +556,38 @@ function drawBranch(
 ): void {
   if (depth > maxDepth || length < 2) return;
   const interactWind = params.fractalWind + state.interactionIntensity * 0.5 * (state.interactionX - 0.5);
+  // sway used via fractalSway param
+  const chaos = params.fractalChaos || 0;
   const wind = Math.sin(state.time * 2 + depth * 0.5) * interactWind * depth * 3;
-  const rad = ((angle + wind) * Math.PI) / 180;
+  const chaosOffset = chaos > 0 ? (Math.random() - 0.5) * chaos * 10 : 0;
+  const rad = ((angle + wind + chaosOffset) * Math.PI) / 180;
   const x2 = x + Math.cos(rad) * length;
   const y2 = y + Math.sin(rad) * length;
-  const hue = (state.hueShift + depth * 30 + angle) % 360;
+  const colorMode = Math.floor(params.fractalColor || 0);
+  let hue: number;
+  if (colorMode === 0) hue = (state.hueShift + depth * 30 + angle) % 360;
+  else if (colorMode === 1) hue = (state.hueShift + depth / maxDepth * 180) % 360;
+  else if (colorMode === 2) hue = (state.hueShift + state.time * 20) % 360;
+  else hue = (state.hueShift + x / state.width * 120) % 360;
   const alpha = (1 - depth / maxDepth) * 0.6 * (0.5 + state.rms * 0.5);
-  const width = Math.max(0.5, (1 - depth / maxDepth) * 4 * params.intensity);
+  const width = Math.max(0.5, (1 - depth / maxDepth) * (params.fractalThickness || 4) * params.intensity);
 
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2);
   ctx.strokeStyle = `hsla(${hue}, 60%, ${40 + state.rms * 20}%, ${alpha})`;
   ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke();
 
-  const next = length * 0.72;
+  // Glow effect
+  if (params.fractalGlow > 0 && depth < 3) {
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.strokeStyle = `hsla(${hue}, 80%, 60%, ${alpha * params.fractalGlow * 0.3})`;
+    ctx.lineWidth = width * 3;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.restore();
+  }
+
+  const decay = params.fractalDecay || 0.72;
+  const next = length * decay;
   const ba = params.fractalAngle * (0.8 + state.bass * 0.4 + state.interactionIntensity * 0.6);
   for (let b = 0; b < params.fractalBranches; b++) {
     const spread = (b - (params.fractalBranches - 1) / 2) * ba;
@@ -715,32 +610,21 @@ function drawFractal(ctx: CanvasRenderingContext2D, state: VisualState, params: 
 const RENDERERS: Record<VisualMode, (ctx: CanvasRenderingContext2D, state: VisualState, params: VisualParams) => void> = {
   nebula: drawNebula,
   network: drawNetwork,
-  kaleidoscope: drawKaleidoscope,
-  oscilloscope: drawOscilloscope,
-  terrain: drawTerrain,
   plasma: drawPlasma,
-  fluid: drawFluid,
   orbs: drawOrbs,
   voronoi: drawVoronoi,
   fractal: drawFractal,
 };
 
-/**
- * Renders a single frame for the given visual mode to a 2D canvas context.
- */
 export function renderFrame(
   ctx: CanvasRenderingContext2D, mode: VisualMode, state: VisualState, params: VisualParams,
 ): void {
-  // Guard: skip rendering if canvas has zero dimensions
   if (state.width <= 0 || state.height <= 0) return;
   (RENDERERS[mode] ?? drawNebula)(ctx, state, params);
 }
 
 /* ─── Analyser helpers ─── */
 
-/**
- * Extracts bass/mid/treble/RMS/beat data from an AnalyserNode.
- */
 export function extractAudioData(analyser: AnalyserNode): { bass: number; mid: number; treble: number; rms: number; beat: number } {
   const freqData = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(freqData);
@@ -766,13 +650,8 @@ export function extractAudioData(analyser: AnalyserNode): { bass: number; mid: n
   return { bass, mid, treble, rms, beat };
 }
 
-/**
- * Resets all visual engine state (particles, noise, etc.).
- */
 export function resetVisuals(): void {
   particles = [];
   orbs = [];
-  fluidDots = [];
   voronoiPts = [];
-  oscTraces = [];
 }

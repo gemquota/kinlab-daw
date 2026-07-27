@@ -7,7 +7,7 @@ import { getAudioContext, getDrumGain } from "@/audio/audioEngine";
 
 /* ── Shared helpers ── */
 
-function makeDistortionCurve(amount: number): any {
+function makeDistortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const n = 44100;
   const curve = new Float32Array(n);
   const deg = Math.PI / 180;
@@ -261,6 +261,9 @@ export function triggerCrash(when?: number): void {
 /* ── Unified drum trigger ── */
 export type DrumType = "kick" | "hat" | "hatOpen" | "clap" | "bass" | "perc" | "tom" | "crash";
 
+/**
+ * Dispatches a drum trigger to the appropriate synth function by type.
+ */
 export function triggerDrum(type: DrumType, when?: number): void {
   switch (type) {
     case "kick": triggerKick(when); break;

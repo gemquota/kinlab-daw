@@ -27,6 +27,7 @@ export function WaveformControls() {
       {/* Playback */}
       <div className="flex items-center gap-2">
         <button
+        aria-label="Play/pause"
           onClick={store.togglePlayback}
           className={cn(
             "flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium transition-colors",
@@ -39,6 +40,7 @@ export function WaveformControls() {
           {store.isPlaying ? "Pause" : "Play"}
         </button>
         <button
+        aria-label="Play/pause"
           onClick={store.reset}
           className="p-2 rounded-lg text-text-tertiary hover:text-text-primary hover:bg-surface-tertiary"
         >
@@ -400,6 +402,7 @@ function SliderRow({
       </div>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}

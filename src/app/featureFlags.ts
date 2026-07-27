@@ -37,10 +37,16 @@ export const DEFAULT_FLAGS: FeatureFlags = {
 
 let flags = { ...DEFAULT_FLAGS };
 
+/**
+ * Returns the current value of a feature flag by key.
+ */
 export function getFeatureFlag<K extends keyof FeatureFlags>(key: K): FeatureFlags[K] {
   return flags[key];
 }
 
+/**
+ * Sets a feature flag value at runtime.
+ */
 export function setFeatureFlag<K extends keyof FeatureFlags>(key: K, value: FeatureFlags[K]): void {
   flags[key] = value;
 }

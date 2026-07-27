@@ -168,6 +168,9 @@ export const RUMBLE: PatternDef = {
 
 export const ALL_PATTERNS: PatternDef[] = [FILTHY_TECHNO, MINIMAL_TECHNO, INDUSTRIAL, ACID, RUMBLE];
 
+/**
+ * Returns all DrumHits that occur on a given step in a pattern.
+ */
 export function getHitsOnStep(pattern: PatternDef, step: number): DrumHit[] {
   return pattern.hits.filter(h => h.step === step);
 }

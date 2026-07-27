@@ -30,40 +30,49 @@ vi.mock("@/store/daw.store", () => ({
   }),
 }));
 
+vi.mock("@/store/visual.store", () => ({
+  useVisualStore: vi.fn((selector) => {
+    const state = { params: {}, setParam: vi.fn(), resetParams: vi.fn() };
+    return selector ? selector(state) : state;
+  }),
+}));
+
 vi.mock("@/audio/audioEngine", () => ({
   resumeAudio: vi.fn(),
 }));
 
 describe("FloatingControls", () => {
+  const defaultProps = { visualMode: "nebula" as const, onModeChange: vi.fn() };
+
   it("should render without errors", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
+    render(<FloatingControls {...defaultProps} />);
     expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
   });
 
   it("should display play button when not playing", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
+    render(<FloatingControls {...defaultProps} />);
     const playButton = screen.getByRole("button", { name: /play/i });
     expect(playButton).toHaveTextContent("▶");
   });
 
   it("should display BPM value", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
+    render(<FloatingControls {...defaultProps} />);
     const bpmInput = screen.getByRole("spinbutton", { name: /bpm value/i });
     expect(bpmInput).toHaveValue(135);
   });
 
   it("should display pattern name", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
+    render(<FloatingControls {...defaultProps} />);
     expect(screen.getByText("Filthy Techno")).toBeInTheDocument();
   });
 
   it("should have aria-labels on all interactive elements", async () => {
     const { FloatingControls } = await import("@/components/immersive/FloatingControls");
-    render(<FloatingControls />);
+    render(<FloatingControls {...defaultProps} />);
 
     expect(screen.getByRole("button", { name: /play/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /decrease bpm/i })).toBeInTheDocument();
