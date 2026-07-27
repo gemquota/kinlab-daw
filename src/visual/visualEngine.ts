@@ -125,7 +125,7 @@ function drawNebula(ctx: CanvasRenderingContext2D, state: VisualState, params: V
   for (const p of particles) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fillStyle = "hsla(" + p.hue + ", " + p.sat + "%!, 60%, " + (p.alpha * (1 - p.life / p.maxLife)) + ")";
+    ctx.fillStyle = "hsla(" + p.hue + ", " + p.sat + "%, 60%, " + (p.alpha * (1 - p.life / p.maxLife)) + ")";
     ctx.fill();
   }
 }
@@ -206,7 +206,7 @@ function drawPlasma(ctx: CanvasRenderingContext2D, state: VisualState, params: V
       const sat = 60 + v * 30;
       const lum = 15 + v * 45;
 
-      ctx.fillStyle = "hsl(" + hue + "," + sat + "%!," + lum + "%!)";
+      ctx.fillStyle = "hsl(" + hue + "," + sat + "%," + lum + "%)";
       ctx.fillRect(x, y, 4, 4);
     }
   }
@@ -331,9 +331,9 @@ function drawVoronoi(ctx: CanvasRenderingContext2D, state: VisualState, params: 
       const pulse = state.beat * params.voronoiPulse;
 
       if (edge) {
-        ctx.fillStyle = "hsla(" + hue + ", 80%, " + (60 + pulse * 30) + "%!, " + (params.voronoiOpacity * 0.9) + ")";
+        ctx.fillStyle = "hsla(" + hue + ", 80%, " + (60 + pulse * 30) + "%, " + (params.voronoiOpacity * 0.9) + ")";
       } else if (params.voronoiFill) {
-        ctx.fillStyle = "hsla(" + hue + ", 50%, " + (15 + pulse * 10) + "%!, " + (params.voronoiOpacity * 0.4) + ")";
+        ctx.fillStyle = "hsla(" + hue + ", 50%, " + (15 + pulse * 10) + "%, " + (params.voronoiOpacity * 0.4) + ")";
       } else continue;
 
       ctx.fillRect(x, y, step, step);
@@ -368,7 +368,7 @@ function drawBranch(
   const width = Math.max(0.5, (1 - depth / maxDepth) * (params.fractalThickness || 4) * params.intensity);
 
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x2, y2);
-  ctx.strokeStyle = "hsla(" + hue + ", 60%, " + (40 + state.rms * 20) + "%!, " + alpha + ")";
+  ctx.strokeStyle = "hsla(" + hue + ", 60%, " + (40 + state.rms * 20) + "%, " + alpha + ")";
   ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke();
 
   if (params.fractalGlow > 0 && depth < 3) {
